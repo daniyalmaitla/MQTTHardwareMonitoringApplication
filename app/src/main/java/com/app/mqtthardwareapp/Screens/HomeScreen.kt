@@ -35,6 +35,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,23 +46,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 import kotlinx.coroutines.selects.select
 
 @Composable
-fun HomeScreen(){
-    Scaffold(topBar = {HomeTopbar()}){ paddingValues->
+fun HomeScreen(
+    navController: NavController,
+    onMachineClick : () ->Unit
+){
+    Scaffold(topBar = {HomeTopbar(onMachineClick = onMachineClick)},
+        bottomBar = {bottomBar()}){ paddingValues->
         Column (modifier = Modifier.padding(paddingValues).padding(12.dp).verticalScroll(
             rememberScrollState()
         )){
@@ -78,6 +87,60 @@ fun HomeScreen(){
             Spacer(modifier = Modifier.height(10.dp))
 
            SpeedSettingRow()
+            Spacer(modifier = Modifier.height(10.dp))
+            Fields(
+               icon = painterResource(R.drawable.download_speed),
+                label = "CURRENT SPEED",
+                value = "0.00",
+                unit = "m/h",
+                iconRight = painterResource(R.drawable.download_speed)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            DistanceRow()
+            Spacer(modifier = Modifier.height(10.dp))
+            Fields(
+                icon = painterResource(R.drawable.download_speed),
+                label = "REMAINING TIME",
+                value = "0.00",
+                unit = "m/h",
+                iconRight = painterResource(R.drawable.download_speed)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Fields(
+                icon = painterResource(R.drawable.battery_3713201),
+                label = "BATTERY VOLTAGE",
+                value = "12.0",
+                unit = "m/h",
+                iconRight = painterResource(R.drawable.download_speed)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            PressureSettingRow()
+            var switchState by remember { mutableStateOf(false) }
+            var switchState2 by remember { mutableStateOf(false) }
+            Spacer(modifier = Modifier.height(10.dp))
+            DeviceFieldWithSwitch(
+                icon = painterResource(id = R.drawable.notification), // your icon
+                label = "AUTOMATIC REPORTS",
+                value = "OFF",
+                switchState = switchState,
+                onSwitchChange = { switchState = it }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            DeviceFieldWithSwitch(
+                icon = painterResource(id = R.drawable.pneumatic), // your icon
+                label = "MAIN VALVE CONTROL STATUS",
+                value = "CLOSED",
+                switchState = switchState2,
+                onSwitchChange = { switchState2 = it }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+            UUIDField()
+
+
+
+
+
 
 
 
@@ -109,7 +172,7 @@ fun HomeTopbar(
             contentDescription = "Positron Logo",
             modifier = Modifier
                 .size(50.dp)
-                .clickable(onClick = onMachineClick),
+                .clickable { onMachineClick() },
             colorFilter = null
         )
 
@@ -332,7 +395,7 @@ fun SpeedSettingRow() {
         // Current Speed Row
         DeviceField(
             icon = painterResource(R.drawable.optimization),
-            label = "Current Speed",
+            label = "SPEED SETTING",
             value = "0.00",
             unit = "m/h",
             iconRight = painterResource(R.drawable.down_arrow),
@@ -361,7 +424,7 @@ fun SpeedSettingRow() {
 
                 // Label
                 Text(
-                    text = "Change Speed",
+                    text = "CHANGE SPEED",
                     modifier = Modifier.width(80.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -372,7 +435,7 @@ fun SpeedSettingRow() {
                     onValueChange = { speedInput = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    placeholder = { Text("Enter speed") },
+                    placeholder = { Text("ENTER SPEED") },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -403,6 +466,397 @@ fun SpeedSettingRow() {
         }
     }
 }
+@Composable
+fun PressureSettingRow() {
+    var showField by remember { mutableStateOf(false) }
+    var currentValue by remember { mutableStateOf("0.00") }
+    var newValue by remember { mutableStateOf("") }
+
+    Column {
+        // Current Pressure Row (collapsible trigger)
+        DeviceField(
+            icon = painterResource(R.drawable.pressure_meter),
+            label = "PRESSURE",
+            value = currentValue,
+            unit = "Pa",
+            iconRight = painterResource(R.drawable.down_arrow),
+            onRightIconClick = {
+                showField = !showField
+            }
+        )
+
+        if (showField) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                // Icon + Label above read-only field
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.pressure_meter),
+                        contentDescription = "Pressure Icon",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PRESSURE UPPER LIMIT",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Black
+                    )
+                }
+
+                // Read-only field with current value
+                OutlinedTextField(
+                    value = currentValue,
+                    onValueChange = { }, // Read-only
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                    readOnly = true,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledContainerColor = Color.White,
+                        disabledTextColor = Color.Black,
+                        disabledBorderColor = Color.Gray
+                    ),
+                    enabled = false
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Editable input field
+                    OutlinedTextField(
+                        value = newValue,
+                        onValueChange = { newValue = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("Enter new value") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = Color.Gray,
+                            cursorColor = Color.Black,
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // OK Button
+                    Button(
+                        onClick = {
+                            if (newValue.isNotBlank()) {
+                                currentValue = newValue
+                                newValue = "" // clear input
+                                showField = false // collapse row
+                            }
+                        },
+                        modifier = Modifier
+                            .height(50.dp)
+                            .width(50.dp)
+                            .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)), // grey border
+                        shape = RoundedCornerShape(2.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("OK", color = Color.Black, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun DistanceRow() {
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedOption by remember { mutableStateOf("Option 1") }
+
+    Column {
+        // Current Speed Row
+        DeviceField(
+            icon = painterResource(R.drawable.travel),
+            label = "REMAINING DISTANCE",
+            value = "15.00",
+            unit = "m",
+            iconRight = painterResource(R.drawable.arrows_13170375),
+            onRightIconClick = {
+                showDialog = !showDialog
+            }
+        )
+
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                confirmButton = {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Choose an Option") },
+                text = {
+                    Column {
+                        val options = listOf("Option 1", "Option 2", "Option 3")
+                        options.forEach { option ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedOption = option }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedOption == option,
+                                    onClick = { selectedOption = option }
+                                )
+                                Text(option, modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+
+
+@Composable
+fun Fields(
+    modifier: Modifier = Modifier,
+    icon: Painter,
+    label: String,
+    value: String,
+    unit: String? = null,
+    backgroundColor: Color = MaterialTheme.colorScheme.primary,
+    valueColor: Color = Color.Blue,
+    unitColor: Color = Color.Black,
+    iconRight : Painter
+
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(backgroundColor)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left Icon
+        Icon(
+            painter = icon,
+            contentDescription = label,
+            modifier = Modifier
+                .size(40.dp)
+                .padding(end = 8.dp),
+            tint = Color.Unspecified
+        )
+
+        // Label + Value
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Black
+            )
+        }
+
+        // Value + Unit
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                color = valueColor
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+
+            if (unit != null) {
+                Text(
+                    text = " $unit",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = unitColor
+                )
+            }
+            Spacer(modifier = Modifier.width(25.dp))
+            Icon(
+                painter = iconRight,
+                contentDescription = label,
+                modifier = Modifier
+                    .size(40.dp)
+                    .padding(end = 8.dp).alpha(0f),
+                tint = Color.Unspecified,
+            )
+
+        }
+    }
+}
+@Composable
+fun DeviceFieldWithSwitch(
+    modifier: Modifier = Modifier,
+    icon: Painter,
+    label: String,
+    value: String,
+    backgroundColor: Color = MaterialTheme.colorScheme.primary,
+    valueColor: Color = Color.Blue,
+    switchState: Boolean,
+    onSwitchChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(backgroundColor)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left Icon
+        Icon(
+            painter = icon,
+            contentDescription = label,
+            modifier = Modifier
+                .size(40.dp)
+                .padding(end = 8.dp),
+            tint = Color.Unspecified
+        )
+
+        // Label + Value in same line, label wraps if long
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Black,
+                modifier = Modifier.weight(1f), // let it wrap
+                maxLines = Int.MAX_VALUE,
+                overflow = TextOverflow.Visible
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                color = valueColor
+            )
+        }
+        Spacer(modifier = Modifier.width(25.dp))
+
+        // Switch
+        Switch(
+            checked = switchState,
+            onCheckedChange = { onSwitchChange(it) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color.Green,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color.Gray
+            )
+        )
+    }
+}
+@Composable
+fun UUIDField() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = MaterialTheme.colorScheme.primary)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left Icon
+        Icon(
+            painter = painterResource(R.drawable.cloud_platform),
+            contentDescription = null,
+            modifier = Modifier
+                .size(40.dp)
+                .padding(end = 8.dp),
+            tint = Color.Unspecified
+        )
+
+        // Label + Value
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = "UUID",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Black
+            )
+        }
+
+        // Value + Unit
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "13032025678",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Black,
+                modifier = Modifier
+                    .background(color = Color.White.copy(alpha = 0.3f), shape = RectangleShape).padding(8.dp)
+            )
+
+            Spacer(modifier = Modifier.width(25.dp))
+            Icon(
+                painter = painterResource(R.drawable.cloud_platform),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(40.dp)
+                    .padding(end = 8.dp).alpha(0f),
+                tint = Color.Unspecified,
+            )
+
+        }
+    }
+}
+@Composable
+fun bottomBar() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = MaterialTheme.colorScheme.surfaceContainer),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, // center icon & text horizontally
+            verticalArrangement = Arrangement.Center // center content vertically in bottom bar
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.trash),
+                contentDescription = null,
+                modifier = Modifier.size(60.dp), // 👈 reduced to fit in bar
+                tint = Color.Unspecified
+            )
+            Text(
+                text = "Delete Device",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(top = 4.dp) // small spacing instead of Spacer(15dp)
+            )
+        }
+    }
+}
+
+
+
 
 
 
@@ -417,7 +871,7 @@ fun SpeedSettingRow() {
 @Composable
 fun PreviewHome(){
     MqttHardwareAppTheme {
-        HomeScreen()
+
     }
 
 }

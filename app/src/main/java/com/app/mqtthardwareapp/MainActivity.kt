@@ -7,9 +7,17 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
-
-
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.app.mqtthardwareapp.Screens.DeviceRegScreen
+import com.app.mqtthardwareapp.Screens.HomeScreen
+import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 
 
 class MainActivity : ComponentActivity() {
@@ -21,45 +29,25 @@ class MainActivity : ComponentActivity() {
         // Start your background service
         val serviceIntent = Intent(this, MqttBackgroundService::class.java)
         startForegroundService(serviceIntent)
+        setContent {
+            MqttHardwareAppTheme {
+                val navController = rememberNavController()
+                AppNavigation(navController)
+            }
+        }
 
     }
 }
-
-/*@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MqttMessageScreen() {
-    var mqttMessage by remember { mutableStateOf("Waiting for MQTT data...") }
-    val context = LocalContext.current
-
-    // Register a broadcast receiver
-    DisposableEffect(Unit) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                val payload = intent?.getStringExtra("payload") ?: ""
-                mqttMessage = payload
-            }
-        }
-        ContextCompat.registerReceiver(
-            context,
-            receiver,
-            IntentFilter("MQTT_MESSAGE"),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
-        onDispose {
-            context.unregisterReceiver(receiver)
-        }
+fun AppNavigation(navController: NavHostController) {
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") { HomeScreen(
+            navController = navController,
+            onMachineClick = {navController.navigate("device_reg")}) }
+        composable("device_reg") {
+            DeviceRegScreen() }
     }
+}
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("MQTT Data Viewer") })
-        }
-    ) { padding ->
-        Text(
-            text = "Latest Payload:\n$mqttMessage",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(padding).padding(16.dp)
-        )
-    }
-}*/
+
+
