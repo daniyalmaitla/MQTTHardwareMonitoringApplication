@@ -46,7 +46,7 @@ android {
 
 dependencies {
     implementation ("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
-    implementation ("com.github.hannesa2:paho.mqtt.android:3.3.5")
+    implementation("com.github.hannesa2:paho.mqtt.android:4.2.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.05.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -55,6 +55,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
