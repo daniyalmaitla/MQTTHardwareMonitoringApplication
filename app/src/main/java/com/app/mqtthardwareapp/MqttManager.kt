@@ -91,7 +91,7 @@ class MqttManager(context: Context) {
         val options = MqttConnectOptions().apply {
             isCleanSession = false            // keep session/subscriptions after reconnect
             isAutomaticReconnect = true       // auto-reconnect if connection drops
-            connectionTimeout = 10
+            connectionTimeout = 20
             keepAliveInterval = 30            // send ping every 60s
         }
 

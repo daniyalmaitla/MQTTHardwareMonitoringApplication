@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
+
+
 }
 
 android {
@@ -57,6 +60,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0")
     implementation ("androidx.navigation:navigation-compose:2.7.7")
+
+        val room_version = "2.6.1"
+
+        implementation("androidx.room:room-runtime:$room_version")
+    kapt("androidx.room:room-compiler:$room_version") // 👈 Required
+    implementation("androidx.room:room-ktx:$room_version")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

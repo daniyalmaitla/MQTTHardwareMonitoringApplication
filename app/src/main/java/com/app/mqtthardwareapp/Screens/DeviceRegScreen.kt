@@ -33,10 +33,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,16 +51,39 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
+import com.app.mqtthardwareapp.ViewModels.DeviceRepository
+import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
+import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
 
 @Composable
-fun DeviceRegScreen(){
+fun DeviceRegScreen(
+    navController: NavController,
+    repo: DeviceRepository,
+    viewModel: DeviceViewModel
+){
+    val state by viewModel.state.collectAsState()
+    var communicationInterval by rememberSaveable { mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "") }
+
+
+
     val devices = remember {
-        mutableStateListOf(
-            *Array(20) { DeviceRowState(enabled = false, deviceName = "", uid = "") }
-        )
+        mutableStateListOf<Device>().apply {
+            repeat(20) { slot ->
+                add(
+                    state.devices.find { it.id == slot + 1 }
+                        ?: Device(slot + 1, "", "", 1000L, false, "", "")
+                )
+            }
+        }
     }
+
+
+
     Scaffold(topBar = {RegTopbar()}) {paddingValues->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
@@ -69,7 +94,24 @@ fun DeviceRegScreen(){
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 item { Spacer(modifier = Modifier.height(12.dp)) }
-                item{TopButtons()}
+                item {
+                    TopButtons(
+                        onSaveExit = {
+                            // Loop through all devices and save to DB
+                            devices.forEach { device ->
+                                viewModel.saveDevice(
+                                    id = device.id,
+                                    deviceName = device.name,
+                                    deviceId = device.deviceId,
+                                    interval = device.interval,
+                                    enabled = device.enabled
+                                )
+                            }
+                            navController.popBackStack()
+                        },
+                        onExit = { navController.popBackStack() }
+                    )
+                }
                 item { Spacer(modifier = Modifier.height(2.dp)) }
 
 
@@ -78,18 +120,29 @@ fun DeviceRegScreen(){
                 }
 
                 // Device Rows
+
                 itemsIndexed(devices) { index, device ->
                     DeviceRow(
-                        index = index + 1,
-                        state = device,
-                        onCheckedChange = { devices[index] = devices[index].copy(enabled = it) },
-                        onDeviceNameChange = { devices[index] = devices[index].copy(deviceName = it) },
-                        onUidChange = { devices[index] = devices[index].copy(uid = it) }
+                        device = device,
+                        onDeviceChange = { updatedDevice ->
+                            devices[index] = updatedDevice
+                        }
                     )
                 }
+                item {
+                    BottomFields(
+                        interval = communicationInterval,
+                        onIntervalChange = { newInterval ->
+                            communicationInterval = newInterval.toString()
+                            // Apply interval to all devices
+                            devices.replaceAll { it.copy(interval = newInterval) }
+                        }
+                    )
+                }
+
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
-                item{ BottomFields()}
+
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
 
@@ -143,7 +196,10 @@ fun RegTopbar(
 }
 
 @Composable
-fun TopButtons() {
+fun TopButtons(
+    onSaveExit : ()->Unit,
+    onExit : ()-> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -180,7 +236,7 @@ fun TopButtons() {
             }
 
             Button(
-                onClick = { },
+                onClick = onSaveExit,
                 shape = RoundedCornerShape(4.dp),
                 modifier = buttonModifier,
                 colors = ButtonDefaults.buttonColors(
@@ -196,7 +252,7 @@ fun TopButtons() {
             }
 
             Button(
-                onClick = { },
+                onClick = onExit,
                 shape = RoundedCornerShape(4.dp),
                 modifier = buttonModifier,
                 colors = ButtonDefaults.buttonColors(
@@ -269,92 +325,51 @@ fun DeviceManagementScreen() {
     }
 }
 @Composable
-fun BottomFields(){
-    var communicationInterval by remember { mutableStateOf("") }
+fun BottomFields(
+    interval: String,
+    onIntervalChange: (Long) -> Unit
+) {
+    var intervalText by rememberSaveable { mutableStateOf(interval) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth().background(color = MaterialTheme.colorScheme.primary)
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = MaterialTheme.colorScheme.primary)
     ) {
         Text("COMMUNICATION INTERVAL ", fontWeight = FontWeight.Bold)
         OutlinedTextField(
-            value = communicationInterval,
-            onValueChange = { communicationInterval = it },
+            value = intervalText,
+            onValueChange = { newText ->
+                intervalText = newText
+                val intervalLong = newText.toLongOrNull() ?: 0L
+                onIntervalChange(intervalLong) // update all devices
+            },
             modifier = Modifier
                 .width(100.dp)
                 .padding(10.dp),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Gray,    // stays black when focused
-                unfocusedBorderColor = Color.Gray,  // stays black when unfocused
-                disabledBorderColor = Color.Gray,    // optional
-                focusedContainerColor = Color.Transparent, // white background
+                focusedBorderColor = Color.Gray,
+                unfocusedBorderColor = Color.Gray,
+                disabledBorderColor = Color.Gray,
+                focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent
             ),
-            shape = RectangleShape // no rounded corners if you want it square
+            shape = RectangleShape
         )
         Text(" Sec", fontWeight = FontWeight.Bold)
     }
 }
 
-/*@Composable
-fun DeviceRow(
-    index: Int,
-    state: DeviceRowState,
-    onCheckedChange: (Boolean) -> Unit,
-    onDeviceNameChange: (String) -> Unit,
-    onUidChange: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth().background(color = MaterialTheme.colorScheme.primary).padding( 5.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Checkbox(
-            checked = state.enabled,
-            onCheckedChange = onCheckedChange
-        )
-        Text(text = index.toString(), modifier = Modifier.width(15.dp))
-        OutlinedTextField(
-            value = state.deviceName,
-            onValueChange = onDeviceNameChange,
-            placeholder = { Text("Device Name") },
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 2.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White
-            ),
-            shape = RectangleShape // <-- removes rounded corners
-        )
 
-        OutlinedTextField(
-            value = state.uid,
-            onValueChange = onUidChange,
-            placeholder = { Text("UID") },
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 2.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White
-            ),
-            shape = RectangleShape
-        )
-    }
-}*/
+
+
 @Composable
 fun DeviceRow(
-    index: Int,
-    state: DeviceRowState,
-    onCheckedChange: (Boolean) -> Unit,
-    onDeviceNameChange: (String) -> Unit,
-    onUidChange: (String) -> Unit
+    device: Device,
+    onDeviceChange: (Device) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -365,30 +380,30 @@ fun DeviceRow(
     ) {
         // Compact checkbox
         Checkbox(
-            checked = state.enabled,
-            onCheckedChange = onCheckedChange,
+            checked = device.enabled,
+            onCheckedChange = { onDeviceChange(device.copy(enabled = it)) },
             modifier = Modifier
-                .size(24.dp)                              // shrink visual box
-                .padding(end = 2.dp)                      // small gap before index
+                .size(24.dp)
+                .padding(end = 2.dp)
                 .clearAndSetSemantics { },
                     colors = CheckboxDefaults.colors(
-                    checkedColor = Color.Black,      // keep box transparent when checked
-            uncheckedColor = Color.Black,          // border color when unchecked
-            checkmarkColor = Color.Green,          // ✅ green tick
+                    checkedColor = Color.Black,
+            uncheckedColor = Color.Black,
+            checkmarkColor = Color.Green,
             disabledCheckedColor = Color.Transparent,
             disabledUncheckedColor = Color.Gray
         )// keep a11y without extra hit box
         )
 
         Text(
-            text = index.toString(),
+            text =  device.id.toString(),
             modifier = Modifier.width(24.dp),
             color = Color.White
         )
 
         OutlinedTextField(
-            value = state.deviceName,
-            onValueChange = onDeviceNameChange,
+            value = device.name,
+            onValueChange = { onDeviceChange(device.copy(name = it)) },
             placeholder = { Text("Device Name") },
             modifier = Modifier
                 .weight(1f)
@@ -403,8 +418,8 @@ fun DeviceRow(
         )
 
         OutlinedTextField(
-            value = state.uid,
-            onValueChange = onUidChange,
+            value = device.deviceId,
+            onValueChange = { onDeviceChange(device.copy(deviceId = it)) },
             placeholder = { Text("UID") },
             modifier = Modifier
                 .weight(1f)
@@ -421,17 +436,13 @@ fun DeviceRow(
 }
 
 
-data class DeviceRowState(
-    val enabled: Boolean,
-    val deviceName: String,
-    val uid: String
-)
+
 
 
 @Preview(showBackground = true)
 @Composable
 fun DeviceRegPreview(){
     MqttHardwareAppTheme {
-        DeviceRegScreen()
+
     }
 }
