@@ -66,6 +66,7 @@ dependencies {
         implementation("androidx.room:room-runtime:$room_version")
     kapt("androidx.room:room-compiler:$room_version") // 👈 Required
     implementation("androidx.room:room-ktx:$room_version")
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

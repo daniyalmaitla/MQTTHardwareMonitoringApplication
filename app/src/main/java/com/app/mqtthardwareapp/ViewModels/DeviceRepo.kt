@@ -10,4 +10,8 @@ class DeviceRepository(private val dao: DeviceDao) {
     suspend fun enableDevice(slot: Int) = dao.updateDeviceStatus(slot, true)
     suspend fun disableDevice(slot: Int) = dao.updateDeviceStatus(slot, false)
     fun getDevices(): Flow<List<Device>> = dao.getAllDevices()
+    suspend fun getGlobalInterval(): Long? = dao.getGlobalInterval()
+    suspend fun getDeviceByDeviceId(deviceId: String): Device? {
+        return dao.getDeviceByDeviceId(deviceId)
+    }
 }

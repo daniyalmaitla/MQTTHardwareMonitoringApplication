@@ -53,7 +53,8 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository) {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") { HomeScreen(
             navController = navController,
-            onMachineClick = {navController.navigate("device_reg")}) }
+            onMachineClick = {navController.navigate("device_reg")},
+            viewModel = viewModel)}
         composable("device_reg") {
             DeviceRegScreen(
                 navController = navController,

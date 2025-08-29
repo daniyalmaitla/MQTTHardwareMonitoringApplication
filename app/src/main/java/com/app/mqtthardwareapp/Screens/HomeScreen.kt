@@ -1,5 +1,6 @@
 package com.app.mqtthardwareapp.Screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,6 +41,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,17 +60,54 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
+import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.selects.select
 
 @Composable
 fun HomeScreen(
     navController: NavController,
-    onMachineClick : () ->Unit
+    onMachineClick : () ->Unit,
+    viewModel: DeviceViewModel
+
 ){
-    Scaffold(topBar = {HomeTopbar(onMachineClick = onMachineClick)},
+    val state by viewModel.state.collectAsState()
+    var showDuplicateDialog by remember { mutableStateOf(false) }
+    var duplicateDeviceId by remember { mutableStateOf("") }
+
+    val barcodeLauncher = rememberLauncherForActivityResult(
+        contract = ScanContract(),
+        onResult = { result ->
+            if (result.contents != null) {
+                val scannedValue = result.contents.trim()
+
+
+                val exists = state.devices.any { it.deviceId == scannedValue }
+
+                if (exists) {
+                    duplicateDeviceId = scannedValue
+                    showDuplicateDialog = true
+                } else {
+                    viewModel.addDeviceFromQr(scannedValue)
+                }
+            }
+        }
+    )
+    Scaffold(topBar = {HomeTopbar(onMachineClick = onMachineClick, onQrClick = {
+        // Start QR scanner when button clicked
+        val options = ScanOptions()
+        options.setPrompt("Scan Device QR")
+        options.setBeepEnabled(true)
+        options.setOrientationLocked(false)
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+
+        barcodeLauncher.launch(options)
+    },)},
         bottomBar = {bottomBar()}){ paddingValues->
         Column (modifier = Modifier.padding(paddingValues).padding(12.dp).verticalScroll(
             rememberScrollState()
@@ -136,7 +175,18 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
             UUIDField()
-
+            if (showDuplicateDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDuplicateDialog = false },
+                    confirmButton = {
+                        TextButton(onClick = { showDuplicateDialog = false }) {
+                            Text("OK")
+                        }
+                    },
+                    title = { Text("Duplicate Device") },
+                    text = { Text("Device with ID $duplicateDeviceId already exists.") }
+                )
+            }
 
 
 

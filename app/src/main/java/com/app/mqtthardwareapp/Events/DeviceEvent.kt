@@ -3,6 +3,7 @@ package com.app.mqtthardwareapp.Events
 sealed class DeviceEvent {
     data class AddDevice(
         val id: Int,
+        val slot:Int,
         val deviceId: String,
         val deviceName: String,
         val interval: Long,

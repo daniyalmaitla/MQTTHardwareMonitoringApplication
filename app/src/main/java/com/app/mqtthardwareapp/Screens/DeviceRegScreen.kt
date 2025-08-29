@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
@@ -32,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -69,14 +71,24 @@ fun DeviceRegScreen(
     val state by viewModel.state.collectAsState()
     var communicationInterval by rememberSaveable { mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "") }
 
-
+    var showDuplicateDialog by remember { mutableStateOf(false) }
+    var duplicateDeviceId by remember { mutableStateOf("") }
 
     val devices = remember {
         mutableStateListOf<Device>().apply {
             repeat(20) { slot ->
                 add(
-                    state.devices.find { it.id == slot + 1 }
-                        ?: Device(slot + 1, "", "", 1000L, false, "", "")
+                    state.devices.find { it.slot == slot + 1 }
+                        ?: Device(
+                            id = 0,
+                            slot = slot + 1, // use slot explicitly
+                            deviceId = "",
+                            name = "",
+                            interval = 1000L,
+                            enabled = false,
+                            subscribedReadTopic = "",
+                            subscribedWriteTopic = ""
+                        )
                 )
             }
         }
@@ -97,18 +109,38 @@ fun DeviceRegScreen(
                 item {
                     TopButtons(
                         onSaveExit = {
-                            // Loop through all devices and save to DB
+                            var hasDuplicate = false
+
                             devices.forEach { device ->
-                                viewModel.saveDevice(
-                                    id = device.id,
-                                    deviceName = device.name,
-                                    deviceId = device.deviceId,
-                                    interval = device.interval,
-                                    enabled = device.enabled
-                                )
+                                if (device.deviceId.isNotBlank()) {
+                                    val exists = state.devices.any { it.deviceId == device.deviceId && it.slot != device.slot }
+                                    if (exists) {
+                                        hasDuplicate = true
+                                        duplicateDeviceId = device.deviceId
+                                        return@forEach
+                                    }
+                                }
                             }
-                            navController.popBackStack()
-                        },
+
+                            if (hasDuplicate) {
+                                showDuplicateDialog = true
+                            } else {
+                                devices.forEach { device ->
+                                    if (device.deviceId.isNotBlank()) { // Save only filled slots
+                                        viewModel.saveDevice(
+                                            id = device.id,
+                                            slot = device.slot,
+                                            deviceName = device.name,
+                                            deviceId = device.deviceId,
+                                            interval = device.interval,
+                                            enabled = device.enabled
+                                        )
+                                    }
+                                }
+                                navController.popBackStack()
+                            }
+                        }
+                        ,
                         onExit = { navController.popBackStack() }
                     )
                 }
@@ -146,8 +178,20 @@ fun DeviceRegScreen(
                 item { Spacer(modifier = Modifier.height(12.dp)) }
 
 
-
             }
+            if (showDuplicateDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDuplicateDialog = false },
+                    confirmButton = {
+                        TextButton(onClick = { showDuplicateDialog = false }) {
+                            Text("OK")
+                        }
+                    },
+                    title = { Text("Duplicate Device") },
+                    text = { Text("Device with ID $duplicateDeviceId already exists.") }
+                )
+            }
+
 
 
         }
@@ -362,9 +406,6 @@ fun BottomFields(
         Text(" Sec", fontWeight = FontWeight.Bold)
     }
 }
-
-
-
 
 @Composable
 fun DeviceRow(

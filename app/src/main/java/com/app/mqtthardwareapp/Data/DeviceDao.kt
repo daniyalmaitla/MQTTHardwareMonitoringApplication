@@ -22,4 +22,11 @@ interface DeviceDao {
 
     @Query("UPDATE devices SET enabled = :enabled WHERE id = :id")
     suspend fun updateDeviceStatus(id: Int, enabled: Boolean)
+    @Query("SELECT interval FROM devices LIMIT 1")
+    suspend fun getGlobalInterval(): Long?
+    @Query("SELECT * FROM devices")
+    suspend fun getAllDevicesOnce(): List<Device>
+    @Query("SELECT * FROM devices WHERE deviceId = :deviceId LIMIT 1")
+    suspend fun getDeviceByDeviceId(deviceId: String): Device?
+
 }
