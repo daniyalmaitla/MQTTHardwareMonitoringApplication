@@ -352,7 +352,7 @@ import javax.net.ssl.SSLSocketFactory
         }
     }
 }*/
-class MqttManager(
+/*class MqttManager(
     private val context: Context,
     private val serverUri: String = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",
     private val username: String = "positron",
@@ -434,7 +434,7 @@ class MqttManager(
         }
     }
 
-    /** 🔄 Auto-publish READ command every [intervalSec] seconds */
+
     fun startPeriodicRead(topic: String, payload: String, intervalSec: Long = 10) {
         stopPeriodicRead()
         readJob = scope.launch {
@@ -463,7 +463,128 @@ class MqttManager(
             }
         }
     }
+}*/
+
+class MqttManager(
+    private val context: Context,
+    private val serverUri: String = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",
+    private val username: String = "positron",
+    private val password: String = "positron"
+) {
+    private val clientId = "AppDevelopers-" + UUID.randomUUID()
+    private val mqttClient = MqttClient(serverUri, clientId, null)
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /** one periodic job per topic */
+    private val periodicJobs = mutableMapOf<String, Job>()
+
+    // ------------------- connect / subscribe / publish ------------------- //
+
+    fun connect(
+        onConnected: () -> Unit,
+        onMessage: (String, String) -> Unit,
+        onDisconnected: () -> Unit
+    ) {
+        val options = MqttConnectOptions().apply {
+            userName = username
+            password = this@MqttManager.password.toCharArray()
+            isCleanSession = false
+            isAutomaticReconnect = true
+            connectionTimeout = 10
+            keepAliveInterval = 20
+        }
+
+        mqttClient.setCallback(object : MqttCallback {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                val payload = message?.toString() ?: ""
+                if (topic != null) onMessage(topic, payload)
+            }
+            override fun connectionLost(cause: Throwable?) { onDisconnected() }
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+        })
+
+        scope.launch {
+            try {
+                mqttClient.connect(options)
+                withContext(Dispatchers.Main) { onConnected() }
+            } catch (e: Exception) {
+                Log.e("MQTT", "❌ Connect error ${e.message}", e)
+            }
+        }
+    }
+
+    fun subscribe(topic: String) = scope.launch {
+        try {
+            mqttClient.subscribe(topic, 1)
+            Log.d("MQTT", "✅ Subscribed to $topic")
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Subscribe failed ${e.message}")
+        }
+    }
+
+    fun unsubscribe(topic: String) = scope.launch {
+        try {
+            mqttClient.unsubscribe(topic)
+            Log.d("MQTT", "🚫 Unsubscribed $topic")
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Unsubscribe failed ${e.message}")
+        }
+    }
+
+    fun publish(topic: String, message: String) = scope.launch {
+        try {
+            mqttClient.publish(topic, MqttMessage(message.toByteArray()).apply {
+                qos = 1; isRetained = false
+            })
+            Log.d("MQTT", "📤 $topic → $message")
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Publish error ${e.message}")
+        }
+    }
+
+    // ------------------- periodic read control ------------------- //
+
+    /** start or restart a timer for exactly one topic */
+    fun startPeriodicRead(topic: String, payload: String, intervalSec: Long) {
+        // cancel any existing job for this topic
+        periodicJobs[topic]?.cancel()
+
+        periodicJobs[topic] = scope.launch {
+            while (isActive) {
+                publish(topic, payload)
+                delay(intervalSec * 1000)
+            }
+        }
+        Log.d("MQTT", "⏱ Started periodic read for $topic every $intervalSec sec")
+    }
+
+    fun stopPeriodicRead(topic: String) {
+        periodicJobs[topic]?.cancel()
+        periodicJobs.remove(topic)
+        Log.d("MQTT", "⏹ Stopped periodic read for $topic")
+    }
+
+    /** stop & forget everything (use when DB snapshot changes) */
+    fun clearPeriodicReads() {
+        periodicJobs.values.forEach { it.cancel() }
+        periodicJobs.clear()
+        Log.d("MQTT", "🧹 Cleared all periodic reads")
+    }
+
+    fun disconnect() {
+        scope.launch {
+            clearPeriodicReads()
+            try {
+                mqttClient.disconnect()
+                Log.d("MQTT", "🔌 Disconnected")
+            } catch (e: Exception) {
+                Log.e("MQTT", "❌ Disconnect error ${e.message}")
+            }
+        }
+    }
 }
+
 
 
 
