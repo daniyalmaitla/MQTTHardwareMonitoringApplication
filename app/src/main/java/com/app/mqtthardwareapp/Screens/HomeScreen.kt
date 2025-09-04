@@ -1,5 +1,6 @@
 package com.app.mqtthardwareapp.Screens
 
+import android.R.id.bold
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -158,6 +159,7 @@ fun HomeScreen(
             var switchState2 by remember { mutableStateOf(false) }
             Spacer(modifier = Modifier.height(10.dp))
             DeviceFieldWithSwitch(
+                modifier = Modifier.background(color = MaterialTheme.colorScheme.primary),
                 icon = painterResource(id = R.drawable.notification), // your icon
                 label = "AUTOMATIC REPORTS",
                 value = "OFF",
@@ -165,13 +167,14 @@ fun HomeScreen(
                 onSwitchChange = { switchState = it }
             )
             Spacer(modifier = Modifier.height(10.dp))
-            DeviceFieldWithSwitch(
+          /*  DeviceFieldWithSwitch(
                 icon = painterResource(id = R.drawable.pneumatic), // your icon
                 label = "MAIN VALVE CONTROL STATUS",
                 value = "CLOSED",
                 switchState = switchState2,
                 onSwitchChange = { switchState2 = it }
-            )
+            )*/
+            AdvanceControlRow()
 
             Spacer(modifier = Modifier.height(10.dp))
             UUIDField()
@@ -237,13 +240,13 @@ fun HomeTopbar(
         ) {
             Text(
                 text = "POSITRON",
-                fontSize = 28.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
                 text = "IRRIGATION  MASTER",
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Blue,
                 letterSpacing = 2.sp
@@ -329,7 +332,7 @@ fun DeviceSelectorField(
             onDismissRequest = { dialogOpen = false },
             confirmButton = {
                 TextButton(onClick = { dialogOpen = false }) {
-                    Text("OK")
+                    Text("OK", fontSize = 20.sp)
                 }
             },
             title = { Text("Choose Device") },
@@ -355,6 +358,7 @@ fun DeviceSelectorField(
                             )
                             Text(
                                 text = device,
+                                fontSize = 18.sp,
                                 modifier = Modifier.padding(start = 8.dp)
                             )
                         }
@@ -400,6 +404,8 @@ fun DeviceField(
         ) {
             Text(
                 text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black
             )
@@ -411,6 +417,8 @@ fun DeviceField(
         ) {
             Text(
                 text = value,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
             )
@@ -419,6 +427,9 @@ fun DeviceField(
             if (unit != null) {
                 Text(
                     text = " $unit",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+
                     style = MaterialTheme.typography.bodyMedium,
                     color = unitColor
                 )
@@ -475,6 +486,8 @@ fun SpeedSettingRow() {
                 // Label
                 Text(
                     text = "CHANGE SPEED",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
                     modifier = Modifier.width(80.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -558,6 +571,7 @@ fun PressureSettingRow() {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "PRESSURE UPPER LIMIT",
+                        fontSize = 15.sp,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Black
                     )
@@ -623,6 +637,45 @@ fun PressureSettingRow() {
                         Text("OK", color = Color.Black, fontSize = 12.sp)
                     }
                 }
+            }
+        }
+    }
+}
+@Composable
+fun AdvanceControlRow() {
+    var showField by remember { mutableStateOf(false) }
+    var switchState2 by remember { mutableStateOf(false) }
+
+    Column {
+
+        DeviceField(
+            icon = painterResource(R.drawable.advance_control),
+            label = "ADVANCE CONTROL",
+            value ="",
+            unit = "",
+            iconRight = painterResource(R.drawable.down_arrow),
+            onRightIconClick = {
+                showField = !showField
+            }
+        )
+
+        if (showField) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                DeviceFieldWithSwitch(
+
+                    icon = painterResource(id = R.drawable.pneumatic), // your icon
+                    label = "MAIN VALVE CONTROL STATUS",
+                    value = "CLOSED",
+                    switchState = switchState2,
+                    onSwitchChange = { switchState2 = it }
+                )
             }
         }
     }
@@ -719,6 +772,8 @@ fun Fields(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
         }
@@ -729,6 +784,8 @@ fun Fields(
         ) {
             Text(
                 text = value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
             )
@@ -737,6 +794,8 @@ fun Fields(
             if (unit != null) {
                 Text(
                     text = " $unit",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium,
                     color = unitColor
                 )
@@ -760,7 +819,6 @@ fun DeviceFieldWithSwitch(
     icon: Painter,
     label: String,
     value: String,
-    backgroundColor: Color = MaterialTheme.colorScheme.primary,
     valueColor: Color = Color.Blue,
     switchState: Boolean,
     onSwitchChange: (Boolean) -> Unit
@@ -768,7 +826,6 @@ fun DeviceFieldWithSwitch(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -791,6 +848,8 @@ fun DeviceFieldWithSwitch(
         ) {
             Text(
                 text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black,
                 modifier = Modifier.weight(1f), // let it wrap
@@ -802,6 +861,8 @@ fun DeviceFieldWithSwitch(
 
             Text(
                 text = value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
             )
@@ -846,6 +907,8 @@ fun UUIDField() {
         ) {
             Text(
                 text = "UUID",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black
             )
@@ -857,6 +920,8 @@ fun UUIDField() {
         ) {
             Text(
                 text = "13032025678",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.Black,
                 modifier = Modifier

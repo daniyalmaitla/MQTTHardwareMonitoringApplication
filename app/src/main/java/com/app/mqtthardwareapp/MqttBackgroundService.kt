@@ -27,7 +27,7 @@ class MqttBackgroundService : Service() {
         }
     }
 
-    override fun onCreate() {
+    /*override fun onCreate() {
         super.onCreate()
         mqttManager = MqttManager(this)
 
@@ -80,7 +80,46 @@ class MqttBackgroundService : Service() {
             }
 
         )
+    }*/
+    override fun onCreate() {
+        super.onCreate()
+        mqttManager = MqttManager(this)
+
+        startForegroundServiceNotification()
+
+        mqttManager.connect(
+            onConnected = {
+                mqttManager.subscribe("1303202510000READ")
+                mqttManager.subscribe("1303202510000WRITE")
+
+                // ✅ Start periodic reads
+                mqttManager.startPeriodicRead(
+                    topic = "1303202510000READ",
+                    payload = "SN1303202510000E",
+                    intervalSec = 30
+                )
+            },
+            onMessage = { topic, payload ->
+                Log.d("MQTT-SERVICE", "📥 Raw → $payload")
+
+                val deviceData = parsePayload(payload)
+
+                Log.d("MQTT-SERVICE", "✅ Parsed Data: $deviceData")
+
+                val logFile = File(applicationContext.filesDir, "mqtt_data.txt")
+                logFile.appendText("$deviceData\n")
+
+                val intent = Intent("MQTT_MESSAGE")
+                intent.putExtra("payload", payload)
+                sendBroadcast(intent)
+            },
+            onDisconnected = {
+                Log.w("MQTT-SERVICE", "⚠ Disconnected from broker")
+            }
+        )
     }
+
+
 
     override fun onDestroy() {
         super.onDestroy()

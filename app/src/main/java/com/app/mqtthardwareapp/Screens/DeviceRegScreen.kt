@@ -222,13 +222,13 @@ fun RegTopbar(
         ) {
             Text(
                 text = "POSITRON",
-                fontSize = 28.sp,
+                fontSize = 35.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
                 text = "IRRIGATION  MASTER",
-                fontSize = 16.sp,
+                fontSize = 25.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Blue,
                 letterSpacing = 2.sp
@@ -274,6 +274,7 @@ fun TopButtons(
                 Text(
                     "Check for new version",
                     textAlign = TextAlign.Center,
+                    fontSize = 15.sp,
                     softWrap = true,
                     lineHeight = 14.sp
                 )
@@ -291,6 +292,7 @@ fun TopButtons(
                 Text(
                     "Save & Exit",
                     textAlign = TextAlign.Center,
+                    fontSize = 15.sp,
                     softWrap = true
                 )
             }
@@ -307,6 +309,7 @@ fun TopButtons(
                 Text(
                     "Exit",
                     textAlign = TextAlign.Center,
+                    fontSize = 15.sp,
                     softWrap = true
                 )
             }
@@ -319,7 +322,7 @@ fun TopButtons(
         Text(
             text = "DEVICE MANAGEMENT PANEL",
             fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
+            fontSize = 20.sp,
             modifier = Modifier.background(color = MaterialTheme.colorScheme.background)
                 .align(Alignment.CenterHorizontally)
         )
@@ -343,7 +346,7 @@ fun DeviceManagementScreen() {
                 .padding(6.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Text("Device Management Panel", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Device Management Panel", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -357,9 +360,9 @@ fun DeviceManagementScreen() {
                 .padding(6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("EN", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("DEVICE NAME", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("UID", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("EN", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("DEVICE NAME", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("UID", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
 
 
@@ -445,7 +448,8 @@ fun DeviceRow(
         OutlinedTextField(
             value = device.name,
             onValueChange = { onDeviceChange(device.copy(name = it)) },
-            placeholder = { Text("Device Name") },
+            placeholder = { Text("Device Name",
+                ) },
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 2.dp),

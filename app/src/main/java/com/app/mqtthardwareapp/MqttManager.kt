@@ -3,7 +3,17 @@ package com.app.mqtthardwareapp
 import android.content.Context
 import android.util.Log
 import info.mqtt.android.service.MqttAndroidClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import org.eclipse.paho.client.mqttv3.*
+import java.util.UUID
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
+import javax.net.ssl.SSLContext
 
 import javax.net.ssl.SSLSocketFactory
 
@@ -78,7 +88,7 @@ import javax.net.ssl.SSLSocketFactory
 }*/
 
 
-class MqttManager(context: Context) {
+/*class MqttManager(context: Context) {
 
     private val serverUri = "tcp://mqtt.pndsn.com:1883"
 
@@ -162,5 +172,300 @@ class MqttManager(context: Context) {
             e.printStackTrace()
         }
     }
+}*/
+
+
+/*class MqttManager(context: Context) {
+
+
+    private val serverUri =
+        "ssl://72d72cbaf385433cb30548e8ad5a4f69.s1.eu.hivemq.cloud:8883"
+
+
+    private val clientId = "George1"
+
+    private val mqttClient = MqttAndroidClient(context, serverUri, clientId)
+
+    fun connect(onConnected: () -> Unit, onMessage: (String, String) -> Unit) {
+        val options = MqttConnectOptions().apply {
+            userName = "Positron1"
+            password = "Positron1".toCharArray()
+            isCleanSession = false
+            isAutomaticReconnect = true
+            connectionTimeout = 30
+            keepAliveInterval = 60
+            socketFactory = SSLSocketFactory.getDefault() // TLS required
+        }
+
+        mqttClient.setCallback(object : MqttCallback {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                val payload = message?.toString() ?: ""
+                Log.d("MQTT", "📩 Message on $topic → $payload")
+                if (topic != null) {
+                    onMessage(topic, payload)
+                }
+            }
+
+            override fun connectionLost(cause: Throwable?) {
+                Log.e("MQTT", "Connection lost (safely handled): ${cause?.message}")
+                // Do NOT let it bubble to service (which tries Parcelable cast)
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+                Log.d("MQTT", "✅ Delivery complete")
+            }
+        })
+
+        mqttClient.connect(options, null, object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.d("MQTT", "✅ Connected to HiveMQ Cloud broker")
+                onConnected()
+            }
+
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e("MQTT", "❌ Failed to connect: ${exception?.message}")
+                exception?.printStackTrace()
+            }
+        })
+    }
+
+    fun subscribe(topic: String) {
+        mqttClient.subscribe(topic, 0, null, object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.d("MQTT", "✅ Subscribed to $topic")
+            }
+
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e("MQTT", "❌ Failed to subscribe: ${exception?.message}")
+            }
+        })
+    }
+
+    fun publish(topic: String, message: String) {
+        try {
+            val mqttMessage = MqttMessage(message.toByteArray())
+            mqttClient.publish(topic, mqttMessage)
+            Log.d("MQTT", "📤 Published → Topic: $topic | Message: $message")
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Publish error: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    fun disconnect() {
+        try {
+            mqttClient.disconnect()
+            Log.d("MQTT", "🔌 Disconnected")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}*/
+
+/*class MqttManager(context: Context) {
+
+    // ✅ New EMQX Cloud broker details
+    private val serverUri = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883"
+
+    private val clientId = "App Developers"
+
+    private val mqttClient = MqttAndroidClient(context, serverUri, clientId)
+
+    fun connect(onConnected: () -> Unit, onMessage: (String, String) -> Unit) {
+        val options = MqttConnectOptions().apply {
+            userName = "positron"
+            password = "positron".toCharArray()
+            isCleanSession = false
+            isAutomaticReconnect = true
+            connectionTimeout = 20
+            keepAliveInterval = 30
+        }
+
+        mqttClient.setCallback(object : MqttCallback {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                val payload = message?.toString() ?: ""
+                Log.d("MQTT", "📩 Message on $topic → $payload")
+                if (topic != null) {
+                    onMessage(topic, payload)
+                }
+            }
+
+            override fun connectionLost(cause: Throwable?) {
+                Log.w("MQTT", "⚠ Connection lost: ${cause?.message}")
+                try {
+                    mqttClient.reconnect()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+                Log.d("MQTT", "✅ Delivery complete")
+            }
+        })
+
+        mqttClient.connect(options, null, object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.d("MQTT", "✅ Connected to EMQX Cloud broker")
+                onConnected()
+            }
+
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e("MQTT", "❌ Failed to connect: ${exception?.message}")
+                exception?.printStackTrace()
+            }
+        })
+    }
+
+    fun subscribe(topic: String) {
+        mqttClient.subscribe(topic, 1, null, object : IMqttActionListener {
+            override fun onSuccess(asyncActionToken: IMqttToken?) {
+                Log.d("MQTT", "✅ Subscribed to $topic")
+            }
+
+            override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                Log.e("MQTT", "❌ Failed to subscribe: ${exception?.message}")
+            }
+        })
+    }
+
+    fun publish(topic: String, message: String) {
+        try {
+            val mqttMessage = MqttMessage(message.toByteArray()).apply {
+                qos = 1
+                isRetained = false
+            }
+            mqttClient.publish(topic, mqttMessage)
+            Log.d("MQTT", "📤 Published → Topic: $topic | Message: $message")
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Publish error: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    fun disconnect() {
+        try {
+            mqttClient.disconnect()
+            Log.d("MQTT", "🔌 Disconnected")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}*/
+class MqttManager(
+    private val context: Context,
+    private val serverUri: String = "ssl://ce47707f.ala.dedicated.gcp.emqxcloud.com:8883", // ✅ SSL port
+    private val username: String = "positron",
+    private val password: String = "positron"
+) {
+    private val clientId = "App Developers" + UUID.randomUUID().toString()
+    private val mqttClient: MqttClient =
+        MqttClient(serverUri, clientId, null)
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var readJob: Job? = null
+
+    fun connect(
+        onConnected: () -> Unit,
+        onMessage: (String, String) -> Unit,
+        onDisconnected: () -> Unit
+    ) {
+        val options = MqttConnectOptions().apply {
+            userName = username
+            password = this@MqttManager.password.toCharArray()
+            isCleanSession = false   // keep subscriptions
+            isAutomaticReconnect = true
+            connectionTimeout = 10
+            keepAliveInterval = 20
+        }
+
+        mqttClient.setCallback(object : MqttCallback {
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                val payload = message?.toString() ?: ""
+                Log.d("MQTT", "📩 $topic → $payload")
+                if (topic != null) onMessage(topic, payload)
+            }
+
+            override fun connectionLost(cause: Throwable?) {
+                Log.w("MQTT", "⚠ Lost: ${cause?.message}")
+                onDisconnected()
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+                Log.d("MQTT", "✅ Delivery complete")
+            }
+        })
+
+        scope.launch {
+            try {
+                mqttClient.connect(options)
+                Log.d("MQTT", "✅ Connected as $clientId")
+                withContext(Dispatchers.Main) { onConnected() }
+            } catch (e: Exception) {
+                Log.e("MQTT", "❌ Connect error: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun subscribe(topic: String) {
+        scope.launch {
+            try {
+                mqttClient.subscribe(topic, 1)
+                Log.d("MQTT", "✅ Subscribed to $topic")
+            } catch (e: Exception) {
+                Log.e("MQTT", "❌ Subscribe failed: ${e.message}")
+            }
+        }
+    }
+
+    fun publish(topic: String, message: String) {
+        scope.launch {
+            try {
+                val mqttMessage = MqttMessage(message.toByteArray()).apply {
+                    qos = 1
+                    isRetained = false
+                }
+                mqttClient.publish(topic, mqttMessage)
+                Log.d("MQTT", "📤 $topic → $message")
+            } catch (e: Exception) {
+                Log.e("MQTT", "❌ Publish error: ${e.message}")
+            }
+        }
+    }
+
+    /** 🔄 Auto-publish READ command every [intervalSec] seconds */
+    fun startPeriodicRead(topic: String, payload: String, intervalSec: Long = 10) {
+        stopPeriodicRead()
+        readJob = scope.launch {
+            while (isActive) {
+                publish(topic, payload)
+                delay(intervalSec * 1000)
+            }
+        }
+        Log.d("MQTT", "⏱ Started periodic READ every $intervalSec sec")
+    }
+
+    fun stopPeriodicRead() {
+        readJob?.cancel()
+        readJob = null
+        Log.d("MQTT", "⏹ Stopped periodic READ")
+    }
+
+    fun disconnect() {
+        scope.launch {
+            try {
+                stopPeriodicRead()
+                mqttClient.disconnect()
+                Log.d("MQTT", "🔌 Disconnected")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }
+
+
+
+
 
