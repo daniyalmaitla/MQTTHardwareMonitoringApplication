@@ -80,6 +80,9 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     var showDuplicateDialog by remember { mutableStateOf(false) }
     var duplicateDeviceId by remember { mutableStateOf("") }
+    val enabledDevices by viewModel.enabledDevices.collectAsState()
+    val selected by viewModel.selectedDevice.collectAsState()
+    val device by viewModel.selectedDevice.collectAsState()
 
     val barcodeLauncher = rememberLauncherForActivityResult(
         contract = ScanContract(),
@@ -100,7 +103,7 @@ fun HomeScreen(
         }
     )
     Scaffold(topBar = {HomeTopbar(onMachineClick = onMachineClick, onQrClick = {
-        // Start QR scanner when button clicked
+
         val options = ScanOptions()
         options.setPrompt("Scan Device QR")
         options.setBeepEnabled(true)
@@ -109,20 +112,25 @@ fun HomeScreen(
 
         barcodeLauncher.launch(options)
     },)},
-        bottomBar = {bottomBar()}){ paddingValues->
+        bottomBar = {bottomBar(
+            onDelete = { viewModel.deleteSelectedDevice() }
+        )}){ paddingValues->
         Column (modifier = Modifier.padding(paddingValues).padding(12.dp).verticalScroll(
             rememberScrollState()
         )){
-            var selectedDevice by remember { mutableStateOf("") }   // <-- keeps track of chosen device
-            val devices = listOf("Device A", "Device B", "Device C") // your device list
+
+
+
             DeviceSelectorField(
                 placeholder = "Select Device",
-                suggestions = devices,
-                selectedDevice = selectedDevice,
-                onDeviceSelected = { device ->
-                    selectedDevice = device
-                },
+                suggestions = enabledDevices.map { it.name },
+                selectedDevice = selected?.name ?: "Select Device",
+                onDeviceSelected = { name ->
 
+                    enabledDevices.firstOrNull { it.name == name }?.let {
+                        viewModel.selectDevice(it)
+                    }
+                }
             )
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -167,17 +175,11 @@ fun HomeScreen(
                 onSwitchChange = { switchState = it }
             )
             Spacer(modifier = Modifier.height(10.dp))
-          /*  DeviceFieldWithSwitch(
-                icon = painterResource(id = R.drawable.pneumatic), // your icon
-                label = "MAIN VALVE CONTROL STATUS",
-                value = "CLOSED",
-                switchState = switchState2,
-                onSwitchChange = { switchState2 = it }
-            )*/
+
             AdvanceControlRow()
 
             Spacer(modifier = Modifier.height(10.dp))
-            UUIDField()
+            UUIDField(uuid = device?.deviceId ?: "No Device")
             if (showDuplicateDialog) {
                 AlertDialog(
                     onDismissRequest = { showDuplicateDialog = false },
@@ -190,18 +192,6 @@ fun HomeScreen(
                     text = { Text("Device with ID $duplicateDeviceId already exists.") }
                 )
             }
-
-
-
-
-
-
-
-
-
-
-
-
         }
 
     }
@@ -272,11 +262,13 @@ fun HomeTopbar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceSelectorField(
-    placeholder: String = "Select Device",
+
+    placeholder: String,
     suggestions: List<String>,
     selectedDevice: String,
     onDeviceSelected: (String) -> Unit
 ) {
+    val displayText = if (selectedDevice.isBlank()) placeholder else selectedDevice
     var dialogOpen by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(selectedDevice) }
     Row(
@@ -297,7 +289,7 @@ fun DeviceSelectorField(
             .clickable { dialogOpen = true } // Whole box is clickable
     ) {
         OutlinedTextField(
-            value = selected,
+            value = displayText,
             onValueChange = { }, // not editable
             placeholder = { Text(placeholder) },
             trailingIcon = {
@@ -883,7 +875,7 @@ fun DeviceFieldWithSwitch(
     }
 }
 @Composable
-fun UUIDField() {
+fun UUIDField( uuid: String    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -919,7 +911,7 @@ fun UUIDField() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "13032025678",
+                text = uuid,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge,
@@ -942,7 +934,7 @@ fun UUIDField() {
     }
 }
 @Composable
-fun bottomBar() {
+fun bottomBar(onDelete: ()->Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -951,7 +943,7 @@ fun bottomBar() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(12.dp) .clickable { onDelete() },
             horizontalAlignment = Alignment.CenterHorizontally, // center icon & text horizontally
             verticalArrangement = Arrangement.Center // center content vertically in bottom bar
         ) {
@@ -969,18 +961,6 @@ fun bottomBar() {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 @Preview(showBackground = true)
 @Composable

@@ -6,8 +6,10 @@ import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.Events.DeviceEvent
 import com.app.mqtthardwareapp.States.DeviceState
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
@@ -113,8 +115,24 @@ class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
             onSuccess()
         }
     }
-    fun isDeviceExists(deviceId: String): Boolean {
-        return state.value.devices.any { it.deviceId == deviceId }
+    val enabledDevices: StateFlow<List<Device>> =
+        repo.getEnabledDevices()
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Keep the entire selected Device
+    private val _selectedDevice = MutableStateFlow<Device?>(null)
+    val selectedDevice: StateFlow<Device?> = _selectedDevice
+
+    fun selectDevice(device: Device) {
+        _selectedDevice.value = device
+    }
+    fun deleteSelectedDevice() {
+        viewModelScope.launch {
+            _selectedDevice.value?.let { device ->
+                repo.deleteDevice(device)
+                _selectedDevice.value = null
+            }
+        }
     }
 
 

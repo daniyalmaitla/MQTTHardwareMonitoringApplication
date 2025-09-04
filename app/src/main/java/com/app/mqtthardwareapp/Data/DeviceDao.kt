@@ -29,4 +29,5 @@ interface DeviceDao {
     @Query("SELECT * FROM devices WHERE deviceId = :deviceId LIMIT 1")
     suspend fun getDeviceByDeviceId(deviceId: String): Device?
 
+
 }

@@ -113,7 +113,7 @@ fun DeviceRegScreen(
 
                             devices.forEach { device ->
                                 if (device.deviceId.isNotBlank()) {
-                                    val exists = state.devices.any { it.deviceId == device.deviceId && it.slot != device.slot }
+                                    val exists = state.devices.any { it.deviceId == device.deviceId && it.slot != device.slot && it.name ==device.name }
                                     if (exists) {
                                         hasDuplicate = true
                                         duplicateDeviceId = device.deviceId
@@ -188,7 +188,7 @@ fun DeviceRegScreen(
                         }
                     },
                     title = { Text("Duplicate Device") },
-                    text = { Text("Device with ID $duplicateDeviceId already exists.") }
+                    text = { Text("Device already exists.") }
                 )
             }
 

@@ -14,4 +14,5 @@ class DeviceRepository(private val dao: DeviceDao) {
     suspend fun getDeviceByDeviceId(deviceId: String): Device? {
         return dao.getDeviceByDeviceId(deviceId)
     }
+    fun getEnabledDevices(): Flow<List<Device>> = dao.getEnabledDevices()
 }

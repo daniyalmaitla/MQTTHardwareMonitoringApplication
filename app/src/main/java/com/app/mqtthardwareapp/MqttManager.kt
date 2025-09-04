@@ -354,7 +354,7 @@ import javax.net.ssl.SSLSocketFactory
 }*/
 class MqttManager(
     private val context: Context,
-    private val serverUri: String = "ssl://ce47707f.ala.dedicated.gcp.emqxcloud.com:8883", // ✅ SSL port
+    private val serverUri: String = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",
     private val username: String = "positron",
     private val password: String = "positron"
 ) {
