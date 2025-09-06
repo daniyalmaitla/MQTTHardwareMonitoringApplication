@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.app.mqtthardwareapp.Data.AppDatabase
 import com.app.mqtthardwareapp.Data.Device
 import kotlinx.coroutines.CoroutineScope
@@ -201,7 +202,7 @@ class MqttBackgroundService : Service() {
                             }
                     }
                 },
-                onMessage = { topic, payload ->
+                /*onMessage = { topic, payload ->
                     Log.d("MQTT", "📥 Raw → $payload")
                     // parse + persist
                     val parsed = parsePayload(payload)
@@ -211,6 +212,42 @@ class MqttBackgroundService : Service() {
                     // optional UI broadcast
                     sendBroadcast(
                         Intent("MQTT_MESSAGE").putExtra("payload", payload)
+                    )
+                },*/
+               /* onMessage = { topic, payload ->
+                    // parse the payload
+                    val parsed = parsePayload(payload)
+
+                    // normalize the topic -> just the device id
+                    val deviceId = topic.removeSuffix("READ").removeSuffix("WRITE")
+
+                    // broadcast to whoever wants it (Activity/ViewModel)
+                    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                        Intent("MQTT_DEVICE_DATA").apply {
+                            putExtra("deviceId", deviceId)
+                            putExtra("payload", payload)
+                        }
+                    )
+
+                    // you could also update a repository singleton instead of broadcasting
+                },*/
+                onMessage = { topic, payload ->
+                    // raw log so you know what really arrived
+                    Log.d("MQTT", "📥 topic=$topic  payload=$payload")
+
+                    // optional parse
+                    val parsed = parsePayload(payload)
+
+                    // file debug (optional)
+                    File(applicationContext.filesDir, "mqtt_data.txt")
+                        .appendText("$parsed\n")
+
+                    // broadcast to whoever cares
+                    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+                        Intent("MQTT_DEVICE_DATA").apply {
+                            putExtra("deviceId", topic.removeSuffix("READ").removeSuffix("WRITE"))
+                            putExtra("payload", payload)
+                        }
                     )
                 },
                 onDisconnected = {

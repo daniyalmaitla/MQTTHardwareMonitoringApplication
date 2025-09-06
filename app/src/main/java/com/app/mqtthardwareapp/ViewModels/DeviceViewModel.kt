@@ -3,6 +3,7 @@ package com.app.mqtthardwareapp.ViewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.mqtthardwareapp.Data.Device
+import com.app.mqtthardwareapp.DeviceData
 import com.app.mqtthardwareapp.Events.DeviceEvent
 import com.app.mqtthardwareapp.States.DeviceState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,24 +98,7 @@ class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
         val chars = ('A'..'Z') + ('0'..'9')
         return (1..4).map { chars.random() }.joinToString("")
     }
-    fun registerDevice(
-        device: Device,
-        onDuplicateFound: () -> Unit,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
-            val existing = repo.getDeviceByDeviceId(device.deviceId)
 
-            if (existing != null) {
-                // Duplicate found → show dialog
-                onDuplicateFound()
-                return@launch
-            }
-
-            repo.addDevice(device)
-            onSuccess()
-        }
-    }
     val enabledDevices: StateFlow<List<Device>> =
         repo.getEnabledDevices()
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -132,6 +116,14 @@ class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
                 repo.deleteDevice(device)
                 _selectedDevice.value = null
             }
+        }
+    }
+    private val _deviceDataMap = MutableStateFlow<Map<String, DeviceData>>(emptyMap())
+    val deviceDataMap: StateFlow<Map<String, DeviceData>> = _deviceDataMap
+
+    fun updateDeviceData(deviceId: String, data: DeviceData) {
+        _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
+            put(deviceId, data)
         }
     }
 

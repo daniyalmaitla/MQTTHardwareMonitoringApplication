@@ -83,6 +83,9 @@ fun HomeScreen(
     val enabledDevices by viewModel.enabledDevices.collectAsState()
     val selected by viewModel.selectedDevice.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
+    val deviceDataMap by viewModel.deviceDataMap.collectAsState()
+
+    val currentData = selected?.let { deviceDataMap[it.deviceId] }
 
     val barcodeLauncher = rememberLauncherForActivityResult(
         contract = ScanContract(),
@@ -134,22 +137,22 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-           SpeedSettingRow()
+           SpeedSettingRow( speed = String.format("%.1f", currentData?.speedSetting ?: 0.0),)
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                icon = painterResource(R.drawable.download_speed),
                 label = "CURRENT SPEED",
-                value = "0.00",
+                value = String.format("%.2f", currentData?.currentSpeed ?: 0.00),
                 unit = "m/h",
                 iconRight = painterResource(R.drawable.download_speed)
             )
             Spacer(modifier = Modifier.height(10.dp))
-            DistanceRow()
+            DistanceRow(distance = String.format("%.2f", currentData?.remainingDistance ?: 0.00),)
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                 icon = painterResource(R.drawable.download_speed),
                 label = "REMAINING TIME",
-                value = "0.00",
+                value = String.format("%.2f", currentData?.remainingTime ?: 0.00),
                 unit = "m/h",
                 iconRight = painterResource(R.drawable.download_speed)
             )
@@ -157,20 +160,21 @@ fun HomeScreen(
             Fields(
                 icon = painterResource(R.drawable.battery_3713201),
                 label = "BATTERY VOLTAGE",
-                value = "12.0",
+                value = String.format("%.1f", currentData?.batteryVoltage ?: 0.0),
                 unit = "m/h",
                 iconRight = painterResource(R.drawable.download_speed)
             )
             Spacer(modifier = Modifier.height(10.dp))
-            PressureSettingRow()
+            PressureSettingRow(value = String.format("%.1f", currentData?.pressure ?: 0.0),
+                limit = String.format("%d", currentData?.pressureLimit ?: 0))
             var switchState by remember { mutableStateOf(false) }
             var switchState2 by remember { mutableStateOf(false) }
             Spacer(modifier = Modifier.height(10.dp))
             DeviceFieldWithSwitch(
                 modifier = Modifier.background(color = MaterialTheme.colorScheme.primary),
-                icon = painterResource(id = R.drawable.notification), // your icon
+                icon = painterResource(id = R.drawable.notification),
                 label = "AUTOMATIC REPORTS",
-                value = "OFF",
+                value = String.format("%d", currentData?.automaticReportsEnable ?: 0),
                 switchState = switchState,
                 onSwitchChange = { switchState = it }
             )
@@ -440,16 +444,17 @@ fun DeviceField(
     }
 }
 @Composable
-fun SpeedSettingRow() {
+fun SpeedSettingRow(speed : String) {
     var showSpeedField by remember { mutableStateOf(false) }
     var speedInput by remember { mutableStateOf("") }
+    
 
     Column {
         // Current Speed Row
         DeviceField(
             icon = painterResource(R.drawable.optimization),
             label = "SPEED SETTING",
-            value = "0.00",
+            value = speed,
             unit = "m/h",
             iconRight = painterResource(R.drawable.down_arrow),
             onRightIconClick = {
@@ -522,9 +527,8 @@ fun SpeedSettingRow() {
     }
 }
 @Composable
-fun PressureSettingRow() {
+fun PressureSettingRow(value:String,limit:String) {
     var showField by remember { mutableStateOf(false) }
-    var currentValue by remember { mutableStateOf("0.00") }
     var newValue by remember { mutableStateOf("") }
 
     Column {
@@ -532,7 +536,7 @@ fun PressureSettingRow() {
         DeviceField(
             icon = painterResource(R.drawable.pressure_meter),
             label = "PRESSURE",
-            value = currentValue,
+            value = value,
             unit = "Pa",
             iconRight = painterResource(R.drawable.down_arrow),
             onRightIconClick = {
@@ -571,7 +575,7 @@ fun PressureSettingRow() {
 
                 // Read-only field with current value
                 OutlinedTextField(
-                    value = currentValue,
+                    value = limit,
                     onValueChange = { }, // Read-only
                     modifier = Modifier
                         .fillMaxWidth()
@@ -611,7 +615,7 @@ fun PressureSettingRow() {
                     Button(
                         onClick = {
                             if (newValue.isNotBlank()) {
-                                currentValue = newValue
+
                                 newValue = "" // clear input
                                 showField = false // collapse row
                             }
@@ -675,7 +679,7 @@ fun AdvanceControlRow() {
 
 
 @Composable
-fun DistanceRow() {
+fun DistanceRow(distance:String) {
     var showDialog by remember { mutableStateOf(false) }
     var selectedOption by remember { mutableStateOf("Option 1") }
 
@@ -684,7 +688,7 @@ fun DistanceRow() {
         DeviceField(
             icon = painterResource(R.drawable.travel),
             label = "REMAINING DISTANCE",
-            value = "15.00",
+            value = distance,
             unit = "m",
             iconRight = painterResource(R.drawable.arrows_13170375),
             onRightIconClick = {
