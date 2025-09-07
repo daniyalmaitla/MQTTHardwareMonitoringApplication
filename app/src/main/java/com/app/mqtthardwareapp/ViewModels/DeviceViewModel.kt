@@ -1,10 +1,12 @@
 package com.app.mqtthardwareapp.ViewModels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.DeviceData
 import com.app.mqtthardwareapp.Events.DeviceEvent
+import com.app.mqtthardwareapp.MqttManager
 import com.app.mqtthardwareapp.States.DeviceState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,13 +15,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
+class DeviceViewModel(private val repo: DeviceRepository,
+                      private val mqttManager: MqttManager
+) : ViewModel() {
     private val _state = MutableStateFlow(DeviceState())
     val state: StateFlow<DeviceState> = _state.asStateFlow()
 
-    init {
-        onEvent(DeviceEvent.LoadDevices)
-    }
 
     fun onEvent(event: DeviceEvent) {
         when (event) {
@@ -126,6 +127,8 @@ class DeviceViewModel(private val repo: DeviceRepository) : ViewModel() {
             put(deviceId, data)
         }
     }
+
+
 
 
 }

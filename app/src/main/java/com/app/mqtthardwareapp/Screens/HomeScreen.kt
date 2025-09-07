@@ -1,6 +1,7 @@
 package com.app.mqtthardwareapp.Screens
 
 import android.R.id.bold
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.modifier.modifierLocalConsumer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.app.mqtthardwareapp.MqttBackgroundService
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
@@ -86,6 +89,8 @@ fun HomeScreen(
     val deviceDataMap by viewModel.deviceDataMap.collectAsState()
 
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
+    val context = LocalContext.current
+
 
     val barcodeLauncher = rememberLauncherForActivityResult(
         contract = ScanContract(),
@@ -137,7 +142,20 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-           SpeedSettingRow( speed = String.format("%.1f", currentData?.speedSetting ?: 0.0),)
+           SpeedSettingRow( speed = String.format("%.1f", currentData?.speedSetting ?: 0.0),
+               onBtnClick = { entered ->
+                   val dev = selected ?: return@SpeedSettingRow
+                   val command = "CS$entered"
+
+                   // build an intent for the service
+                   val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                       action = MqttBackgroundService.ACTION_MANUAL_PUBLISH
+                       putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
+                       putExtra(MqttBackgroundService.EXTRA_PAYLOAD, command)
+                   }
+                   context.startService(intent)    // or ContextCompat.startForegroundService(context, intent)
+               }
+               )
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                icon = painterResource(R.drawable.download_speed),
@@ -166,7 +184,19 @@ fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(10.dp))
             PressureSettingRow(value = String.format("%.1f", currentData?.pressure ?: 0.0),
-                limit = String.format("%d", currentData?.pressureLimit ?: 0))
+                limit = String.format("%d", currentData?.pressureLimit ?: 0),
+                onBtnClick = { entered ->
+                    val dev = selected ?: return@PressureSettingRow
+                    val command = "PL$entered"
+
+
+                    val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                        action = MqttBackgroundService.ACTION_MANUAL_PUBLISH
+                        putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
+                        putExtra(MqttBackgroundService.EXTRA_PAYLOAD, command)
+                    }
+                    context.startService(intent)
+                })
             var switchState by remember { mutableStateOf(false) }
             var switchState2 by remember { mutableStateOf(false) }
             Spacer(modifier = Modifier.height(10.dp))
@@ -444,10 +474,11 @@ fun DeviceField(
     }
 }
 @Composable
-fun SpeedSettingRow(speed : String) {
+fun SpeedSettingRow(speed : String, onBtnClick: (String) -> Unit  ) {
     var showSpeedField by remember { mutableStateOf(false) }
     var speedInput by remember { mutableStateOf("") }
-    
+    val isError = speedInput.isBlank()
+
 
     Column {
         // Current Speed Row
@@ -499,24 +530,31 @@ fun SpeedSettingRow(speed : String) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
-                        focusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedBorderColor = if (isError) Color.Red else MaterialTheme.colorScheme.surfaceContainer,
                         unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
-                        cursorColor = Color.Black,
+                        cursorColor = Color.Black
                     )
                 )
 
                 Spacer(modifier = Modifier.width(25.dp))
 
-                // OK Button
+
                 Button(
                     onClick = {
-                        // Handle speed input here
-                        showSpeedField = false
+                        if (!isError) {
+                            onBtnClick(speedInput)
+                            showSpeedField = false
+                        }
                     },
-                    modifier = Modifier.height(50.dp).width(50.dp)  .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)), // Square button
-                    shape = RoundedCornerShape(2.dp), // Rounded corners
+                    enabled = !isError,
+                    modifier = Modifier
+                        .height(50.dp)
+                        .width(50.dp)
+                        .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
+                    shape = RoundedCornerShape(2.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer // Grey background
+                        containerColor = if (isError) Color.LightGray
+                        else MaterialTheme.colorScheme.surfaceContainer
                     ),
                     contentPadding = PaddingValues(0.dp)
                 ) {
@@ -527,9 +565,11 @@ fun SpeedSettingRow(speed : String) {
     }
 }
 @Composable
-fun PressureSettingRow(value:String,limit:String) {
+fun PressureSettingRow(value:String,limit:String,onBtnClick: (String) -> Unit) {
     var showField by remember { mutableStateOf(false) }
     var newValue by remember { mutableStateOf("") }
+    val isError = newValue.isBlank()
+    val isValid = newValue.length == 2 && newValue.all { it.isDigit() }
 
     Column {
         // Current Pressure Row (collapsible trigger)
@@ -596,37 +636,45 @@ fun PressureSettingRow(value:String,limit:String) {
                     // Editable input field
                     OutlinedTextField(
                         value = newValue,
-                        onValueChange = { newValue = it },
+                        onValueChange = { input ->
+                            // strip out anything that isn't a digit and keep at most 2
+                            newValue = input.filter { it.isDigit() }.take(2)
+                        },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        placeholder = { Text("Enter new value") },
+                        label = { Text("Enter new value", color = Color.White,
+                            modifier = Modifier.background(color = Color.Unspecified)) },
+                        placeholder = { Text("00") },
+                        isError = newValue.isNotEmpty() && !isValid,   // red only when text exists but not exactly 2
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.Gray,
-                            unfocusedBorderColor = Color.Gray,
-                            cursorColor = Color.Black,
+                            focusedBorderColor = if (isValid || newValue.isEmpty()) Color.Gray else Color.Red,
+                            unfocusedBorderColor = if (isValid || newValue.isEmpty()) Color.Gray else Color.Red,
+                            cursorColor = Color.Black
                         )
                     )
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(Modifier.width(16.dp))
 
-                    // OK Button
                     Button(
                         onClick = {
-                            if (newValue.isNotBlank()) {
+                            if (!isError) {
 
-                                newValue = "" // clear input
-                                showField = false // collapse row
+                                newValue = ""      // clear
+                                onBtnClick(newValue)
+                                showField = false  // collapse
                             }
+
                         },
+                        enabled = isValid || !isError,
                         modifier = Modifier
                             .height(50.dp)
                             .width(50.dp)
-                            .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)), // grey border
+                            .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
                         shape = RoundedCornerShape(2.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            containerColor = if (isValid) MaterialTheme.colorScheme.surfaceContainer else Color.LightGray
                         ),
                         contentPadding = PaddingValues(0.dp)
                     ) {

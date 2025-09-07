@@ -131,13 +131,14 @@ class MainActivity : ComponentActivity() {
         // build repository & shared ViewModel
         val database = AppDatabase.getDatabase(this)
         val repo = DeviceRepository(database.deviceDao())
-        deviceViewModel = ViewModelProvider(this, DeviceViewModelFactory(repo))
+        val mqttManager = MqttManager(applicationContext)
+        deviceViewModel = ViewModelProvider(this, DeviceViewModelFactory(repo,mqttManager))
             .get(DeviceViewModel::class.java)
 
         setContent {
             MqttHardwareAppTheme {
                 val navController = rememberNavController()
-                AppNavigation(navController, repo)
+                AppNavigation(navController, repo,mqttManager = mqttManager)
             }
         }
 
@@ -159,9 +160,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(navController: NavHostController,repo: DeviceRepository) {
+fun AppNavigation(navController: NavHostController,repo: DeviceRepository,  mqttManager: MqttManager) {
     val viewModel: DeviceViewModel = viewModel(
-        factory = DeviceViewModelFactory(repo) // custom factory if needed
+        factory = DeviceViewModelFactory(repo,mqttManager) // custom factory if needed
     )
     NavHost(navController = navController, startDestination = "home") {
         composable("home") { HomeScreen(
