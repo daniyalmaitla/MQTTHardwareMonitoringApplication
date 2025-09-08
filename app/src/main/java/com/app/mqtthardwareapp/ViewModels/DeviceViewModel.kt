@@ -131,5 +131,6 @@ class DeviceViewModel(private val repo: DeviceRepository,
 
 
 
+
 }
 

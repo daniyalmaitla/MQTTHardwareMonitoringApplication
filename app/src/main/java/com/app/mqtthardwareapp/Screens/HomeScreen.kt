@@ -1,7 +1,11 @@
 package com.app.mqtthardwareapp.Screens
 
 import android.R.id.bold
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkRequest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +31,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -43,6 +49,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +79,9 @@ import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import kotlinx.coroutines.selects.select
+import androidx.compose.runtime.State
+import androidx.compose.runtime.produceState
+
 
 @Composable
 fun HomeScreen(
@@ -90,6 +100,14 @@ fun HomeScreen(
 
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
     val context = LocalContext.current
+    val isConnected by rememberConnectivityState()
+    var showNoInternetDialog by remember { mutableStateOf(!isConnected) }  // set right away
+
+    LaunchedEffect(isConnected) {
+        showNoInternetDialog = !isConnected
+    }
+
+
 
 
     val barcodeLauncher = rememberLauncherForActivityResult(
@@ -153,7 +171,7 @@ fun HomeScreen(
                        putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
                        putExtra(MqttBackgroundService.EXTRA_PAYLOAD, command)
                    }
-                   context.startService(intent)    // or ContextCompat.startForegroundService(context, intent)
+                   context.startService(intent)
                }
                )
             Spacer(modifier = Modifier.height(10.dp))
@@ -226,7 +244,20 @@ fun HomeScreen(
                     text = { Text("Device with ID $duplicateDeviceId already exists.") }
                 )
             }
+            if (showNoInternetDialog) {
+                AlertDialog(
+                    onDismissRequest = { showNoInternetDialog = false },  // allow closing
+                    title = { Text("No Internet") },
+                    text = { Text("You are offline. Data cannot be fetched until a network is available.") },
+                    confirmButton = {
+                        TextButton(onClick = { showNoInternetDialog = false }) {
+                            Text("OK")
+                        }
+                    }
+                )
+            }
         }
+
 
     }
 }
@@ -1012,6 +1043,23 @@ fun bottomBar(onDelete: ()->Unit) {
             )
         }
     }
+}
+@Composable
+fun rememberConnectivityState(): State<Boolean> {
+    val context = LocalContext.current
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val networkInfo = cm.activeNetworkInfo
+    val initial = networkInfo?.isConnectedOrConnecting == true
+    val state = produceState(initialValue = initial) {
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { value = true }
+            override fun onLost(network: Network) { value = false }
+        }
+        val request = NetworkRequest.Builder().build()
+        cm.registerNetworkCallback(request, callback)
+        awaitDispose { cm.unregisterNetworkCallback(callback) }
+    }
+    return state
 }
 
 @Preview(showBackground = true)
