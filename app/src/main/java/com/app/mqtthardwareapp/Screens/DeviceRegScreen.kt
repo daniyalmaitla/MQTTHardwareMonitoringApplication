@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -28,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -35,6 +38,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -46,23 +51,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.app.mqtthardwareapp.Data.Device
+import com.app.mqtthardwareapp.Events.DeviceEvent
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
 
-@Composable
+/*@Composable
 fun DeviceRegScreen(
     navController: NavController,
     repo: DeviceRepository,
@@ -81,7 +92,7 @@ fun DeviceRegScreen(
                     state.devices.find { it.slot == slot + 1 }
                         ?: Device(
                             id = 0,
-                            slot = slot + 1, // use slot explicitly
+                            slot = slot + 1,
                             deviceId = "",
                             name = "",
                             interval = 1000L,
@@ -196,7 +207,137 @@ fun DeviceRegScreen(
 
         }
     }
+}*/
+@Composable
+fun DeviceRegScreen(
+    navController: NavController,
+    repo: DeviceRepository,
+    viewModel: DeviceViewModel
+) {
+    LaunchedEffect(Unit) {
+        viewModel.onEvent(DeviceEvent.LoadDevices)
+    }
+
+    val state by viewModel.state.collectAsState()
+    var communicationInterval by rememberSaveable(state.devices) {
+        mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "")
+    }
+    var showDuplicateDialog by remember { mutableStateOf(false) }
+    var duplicateDeviceId by remember { mutableStateOf("") }
+
+    /*val devices = List(20) { slot ->
+        state.devices.find { it.slot == slot + 1 } ?: Device(
+            id = 0,
+            slot = slot + 1,
+            deviceId = "",
+            name = "",
+            interval = 1000L,
+            enabled = false,
+            subscribedReadTopic = "",
+            subscribedWriteTopic = ""
+        )
+    }*/
+    val devices = remember {
+        mutableStateListOf<Device>()
+    }
+
+    LaunchedEffect(state.devices) {
+        devices.clear()
+        devices.addAll(
+            List(20) { slot ->
+                state.devices.find { it.slot == slot + 1 } ?: Device(
+                    slot = slot + 1,
+                    id = 0,
+                    name = "",
+                    deviceId = "",
+                    interval = 1000L,
+                    enabled = false,
+                    subscribedReadTopic = "",
+                    subscribedWriteTopic = ""
+                )
+            }
+        )
+    }
+
+
+    Scaffold(topBar = { RegTopbar() }) { paddingValues ->
+        Column(Modifier.fillMaxSize().padding(paddingValues)) {
+
+            LazyColumn(Modifier.fillMaxSize()) {
+                item {
+                    TopButtons(
+                        onSaveExit = {
+                            var hasDuplicate = false
+                            for (d in devices) {
+                                if (d.deviceId.isNotBlank()) {
+                                    if (state.devices.any { it.deviceId == d.deviceId && it.slot != d.slot && it.name == d.name }) {
+                                        hasDuplicate = true
+                                        duplicateDeviceId = d.deviceId
+                                        break
+                                    }
+                                }
+                            }
+                            if (hasDuplicate) {
+                                showDuplicateDialog = true
+                            } else {
+                                devices.filter { it.deviceId.isNotBlank() }.forEach { dev ->
+                                    viewModel.saveDevice(dev.id, dev.slot, dev.name, dev.deviceId, dev.interval, dev.enabled)
+                                }
+                                navController.popBackStack()
+                            }
+                            communicationInterval.toLongOrNull()?.let { intervalLong ->
+                                viewModel.setIntervalForAll(intervalLong)
+                            }
+
+
+                        },
+                        onExit = { navController.popBackStack() }
+                    )
+                }
+                item { DeviceManagementScreen() }
+                itemsIndexed(devices) { index, device ->
+                    DeviceRow(
+                        device = device,
+                        onDeviceChange = { updated ->
+                            devices[index] = updated
+
+                            viewModel.saveDevice(
+                                updated.id,
+                                updated.slot,
+                                updated.name,
+                                updated.deviceId,
+                                updated.interval,
+                                updated.enabled
+                            )
+                        }
+                    )
+                }
+                item {
+
+                        BottomFields(
+                            interval = communicationInterval,
+                            onIntervalChange = { newVal -> communicationInterval =
+                                newVal.toString()
+                            }
+                        )
+
+                }
+
+            }
+
+
+            if (showDuplicateDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDuplicateDialog = false },
+                    confirmButton = { TextButton({ showDuplicateDialog = false }) { Text("OK") } },
+                    title = { Text("Duplicate Device") },
+                    text = { Text("Device $duplicateDeviceId already exists.") }
+                )
+            }
+        }
+    }
 }
+
 @Composable
 fun RegTopbar(
 
@@ -440,43 +581,66 @@ fun DeviceRow(
         )
 
         Text(
-            text =  device.id.toString(),
+            text = device.slot.toString(),
             modifier = Modifier.width(24.dp),
             color = Color.White
         )
 
-        OutlinedTextField(
-            value = device.name,
-            onValueChange = { onDeviceChange(device.copy(name = it)) },
-            placeholder = { Text("Device Name",
-                ) },
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 2.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White
-            ),
-            shape = RectangleShape
-        )
+            OutlinedTextField(
+                value = device.name,
+                onValueChange = { onDeviceChange(device.copy(name = it)) },
+                placeholder = {
+                    Text(
+                        "Device Name",
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 2.dp),
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    textDirection = TextDirection.Ltr,
+                    textAlign = TextAlign.Start
+                ),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White
+                ),
+                shape = RectangleShape
+            )
 
-        OutlinedTextField(
-            value = device.deviceId,
-            onValueChange = { onDeviceChange(device.copy(deviceId = it)) },
-            placeholder = { Text("UID") },
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 2.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White
-            ),
-            shape = RectangleShape
-        )
+
+
+
+            OutlinedTextField(
+                value = device.deviceId,
+                onValueChange = { onDeviceChange(device.copy(deviceId = it)) },
+                placeholder = { Text("UID") },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 2.dp),
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    textDirection = TextDirection.Ltr,
+                    textAlign = TextAlign.Start
+                ),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White
+                ),
+                shape = RectangleShape
+            )
+
     }
 }
 

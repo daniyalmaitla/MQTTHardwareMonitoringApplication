@@ -28,6 +28,8 @@ interface DeviceDao {
     suspend fun getAllDevicesOnce(): List<Device>
     @Query("SELECT * FROM devices WHERE deviceId = :deviceId LIMIT 1")
     suspend fun getDeviceByDeviceId(deviceId: String): Device?
+    @Query("UPDATE devices SET interval = :interval")
+    suspend fun setIntervalForAll(interval: Long)
 
 
 }

@@ -127,6 +127,12 @@ class DeviceViewModel(private val repo: DeviceRepository,
             put(deviceId, data)
         }
     }
+    fun setIntervalForAll(interval: Long) {
+        viewModelScope.launch {
+            repo.setIntervalForAll(interval)
+        }
+    }
+
 
 
 

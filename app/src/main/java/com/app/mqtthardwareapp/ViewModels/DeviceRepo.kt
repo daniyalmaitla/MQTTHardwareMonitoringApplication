@@ -15,4 +15,5 @@ class DeviceRepository(private val dao: DeviceDao) {
         return dao.getDeviceByDeviceId(deviceId)
     }
     fun getEnabledDevices(): Flow<List<Device>> = dao.getEnabledDevices()
+    suspend fun setIntervalForAll(interval: Long) = dao.setIntervalForAll(interval)
 }

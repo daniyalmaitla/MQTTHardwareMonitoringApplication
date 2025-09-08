@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,13 +102,11 @@ fun HomeScreen(
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
     val context = LocalContext.current
     val isConnected by rememberConnectivityState()
-    var showNoInternetDialog by remember { mutableStateOf(!isConnected) }  // set right away
+    var showNoInternetDialog by remember { mutableStateOf(!isConnected) }
 
     LaunchedEffect(isConnected) {
         showNoInternetDialog = !isConnected
     }
-
-
 
 
     val barcodeLauncher = rememberLauncherForActivityResult(
@@ -271,6 +270,7 @@ fun HomeTopbar(
         modifier = Modifier
             .fillMaxWidth()
             .background(color = MaterialTheme.colorScheme.primary)
+            .statusBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1021,7 +1021,7 @@ fun bottomBar(onDelete: ()->Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.surfaceContainer),
+            .background(color = MaterialTheme.colorScheme.surfaceContainer).statusBarsPadding(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
