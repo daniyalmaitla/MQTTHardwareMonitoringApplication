@@ -142,9 +142,7 @@ fun HomeScreen(
 
         barcodeLauncher.launch(options)
     },)},
-        bottomBar = {bottomBar(
-            onDelete = { showDeleteDialog = true }
-        )}){ paddingValues->
+       ){ paddingValues->
         Column (modifier = Modifier.padding(paddingValues).padding(12.dp).verticalScroll(
             rememberScrollState()
         )){
@@ -266,8 +264,14 @@ fun HomeScreen(
                 }
             )
 
+
             Spacer(modifier = Modifier.height(10.dp))
             UUIDField(uuid = device?.deviceId ?: "No Device")
+            Spacer(modifier = Modifier.height(10.dp))
+            bottomBar(
+                onDelete = { showDeleteDialog = true }
+            )
+
             if (showDuplicateDialog) {
                 AlertDialog(
                     onDismissRequest = { showDuplicateDialog = false },

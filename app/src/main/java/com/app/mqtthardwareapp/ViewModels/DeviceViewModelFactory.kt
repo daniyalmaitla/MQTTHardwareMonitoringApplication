@@ -6,12 +6,12 @@ import com.app.mqtthardwareapp.MqttManager
 
 class DeviceViewModelFactory(
     private val repo: DeviceRepository,
-    private val mqttManager: MqttManager
+
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DeviceViewModel::class.java)) {
-            return DeviceViewModel(repo, mqttManager) as T
+            return DeviceViewModel(repo) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

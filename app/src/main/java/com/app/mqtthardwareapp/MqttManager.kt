@@ -2,6 +2,7 @@ package com.app.mqtthardwareapp
 
 import android.content.Context
 import android.util.Log
+import com.app.mqtthardwareapp.Utils.PrefsHelper
 import info.mqtt.android.service.MqttAndroidClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -471,8 +472,14 @@ class MqttManager(
     private val username: String = "positron",
     private val password: String = "positron"
 ) {
-    private val clientId = "AppDevelopers-" + UUID.randomUUID()
+   /* private val clientId = "AppDevelopers-" + UUID.randomUUID()*/
+   private val clientId: String by lazy {
+       PrefsHelper.getClientId(context).ifBlank {
+           throw IllegalStateException("❌ Client ID is missing! User must set it before connecting.")
+       }
+   }
     private val mqttClient = MqttClient(serverUri, clientId, null)
+
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 

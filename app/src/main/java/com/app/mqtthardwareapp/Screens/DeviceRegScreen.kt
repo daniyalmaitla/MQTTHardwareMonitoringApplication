@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -67,8 +68,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.Events.DeviceEvent
+import com.app.mqtthardwareapp.MqttBackgroundService
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
+import com.app.mqtthardwareapp.Utils.PrefsHelper
 import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
@@ -214,6 +217,10 @@ fun DeviceRegScreen(
     repo: DeviceRepository,
     viewModel: DeviceViewModel
 ) {
+    val context = LocalContext.current
+    var clientId by rememberSaveable {
+        mutableStateOf(PrefsHelper.getClientId(context))
+    }
     LaunchedEffect(Unit) {
         viewModel.onEvent(DeviceEvent.LoadDevices)
     }
@@ -223,6 +230,7 @@ fun DeviceRegScreen(
         mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "")
     }
     var showDuplicateDialog by remember { mutableStateOf(false) }
+    var showClientIdDialog by remember { mutableStateOf(false) }
     var duplicateDeviceId by remember { mutableStateOf("") }
 
     /*val devices = List(20) { slot ->
@@ -267,6 +275,13 @@ fun DeviceRegScreen(
                 item {
                     TopButtons(
                         onSaveExit = {
+                            if (clientId.isBlank()) {
+
+                                showClientIdDialog = true
+                                return@TopButtons
+                            }
+                            PrefsHelper.saveClientId(context, clientId)
+                            MqttBackgroundService.startIfClientIdSet(context)
                             var hasDuplicate = false
                             for (d in devices) {
                                 if (d.deviceId.isNotBlank()) {
@@ -294,6 +309,14 @@ fun DeviceRegScreen(
                         onExit = { navController.popBackStack() }
                     )
                 }
+                item { Spacer(modifier = Modifier.height(10.dp)) }
+                item{
+                    ClientIdField(
+                        clientId = clientId,
+                        onClientIdChange = { clientId = it }
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(10.dp)) }
                 item { DeviceManagementScreen() }
                 itemsIndexed(devices) { index, device ->
                     DeviceRow(
@@ -312,6 +335,7 @@ fun DeviceRegScreen(
                         }
                     )
                 }
+
                 item {
 
                         BottomFields(
@@ -323,6 +347,18 @@ fun DeviceRegScreen(
 
                 }
 
+            }
+            if (showClientIdDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClientIdDialog = false },
+                    confirmButton = {
+                        TextButton(onClick = { showClientIdDialog = false }) {
+                            Text("OK")
+                        }
+                    },
+                    title = { Text("Client ID Required") },
+                    text = { Text("You must enter and save a Client ID before leaving this screen.") }
+                )
             }
 
 
@@ -644,7 +680,35 @@ fun DeviceRow(
     }
 }
 
+@Composable
+fun ClientIdField(
+    clientId: String,
+    onClientIdChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = clientId,
+        onValueChange = { onClientIdChange(it) },
+        label = { Text("Mobile Number *") },
+        placeholder = { Text("Enter your Mobile Number") },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        keyboardOptions = KeyboardOptions.Default.copy(
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor =MaterialTheme.colorScheme.surfaceContainer,
+            focusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
 
+        ),
+        shape = RectangleShape
+    )
+}
 
 
 

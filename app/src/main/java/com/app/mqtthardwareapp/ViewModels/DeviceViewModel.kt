@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class DeviceViewModel(private val repo: DeviceRepository,
-                      private val mqttManager: MqttManager
+
 ) : ViewModel() {
     private val _state = MutableStateFlow(DeviceState())
     val state: StateFlow<DeviceState> = _state.asStateFlow()

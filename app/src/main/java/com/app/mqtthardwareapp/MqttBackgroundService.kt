@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
@@ -12,9 +13,11 @@ import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.app.mqtthardwareapp.Data.AppDatabase
 import com.app.mqtthardwareapp.Data.Device
+import com.app.mqtthardwareapp.Utils.PrefsHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -275,11 +278,27 @@ class MqttBackgroundService : Service() {
 
         startForeground(1, notification)
     }
+
     companion object {
         const val ACTION_MANUAL_PUBLISH = "ACTION_MANUAL_PUBLISH"
         const val EXTRA_DEVICE_ID = "deviceId"
         const val EXTRA_PAYLOAD = "payload"
+        fun startIfClientIdSet(context: Context) {
+            val clientId = PrefsHelper.getClientId(context)
+            if (clientId.isNotBlank()) {
+                val intent = Intent(context, MqttBackgroundService::class.java)
+                ContextCompat.startForegroundService(context, intent)
+                Log.d("MQTT", "▶️ Service started with ClientId=$clientId")
+            } else {
+                Log.w("MQTT", "⚠️ Service not started, ClientId missing")
+            }
+        }
     }
+
+
+
+
+
 
     // … rest of your class
 }
