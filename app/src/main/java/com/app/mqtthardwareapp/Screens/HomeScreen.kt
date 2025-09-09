@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -82,6 +84,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.text.input.KeyboardType
 
 
 @Composable
@@ -100,9 +103,11 @@ fun HomeScreen(
     val deviceDataMap by viewModel.deviceDataMap.collectAsState()
 
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
+
     val context = LocalContext.current
     val isConnected by rememberConnectivityState()
     var showNoInternetDialog by remember { mutableStateOf(!isConnected) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(isConnected) {
         showNoInternetDialog = !isConnected
@@ -138,13 +143,11 @@ fun HomeScreen(
         barcodeLauncher.launch(options)
     },)},
         bottomBar = {bottomBar(
-            onDelete = { viewModel.deleteSelectedDevice() }
+            onDelete = { showDeleteDialog = true }
         )}){ paddingValues->
         Column (modifier = Modifier.padding(paddingValues).padding(12.dp).verticalScroll(
             rememberScrollState()
         )){
-
-
 
             DeviceSelectorField(
                 placeholder = "Select Device",
@@ -182,13 +185,25 @@ fun HomeScreen(
                 iconRight = painterResource(R.drawable.download_speed)
             )
             Spacer(modifier = Modifier.height(10.dp))
-            DistanceRow(distance = String.format("%.2f", currentData?.remainingDistance ?: 0.00),)
+            DistanceRow(
+                distance = String.format("%.2f", currentData?.remainingDistance ?: 0.00),
+                onReset = {
+                    selected?.let { dev ->
+                        val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                            action = MqttBackgroundService.ACTION_MANUAL_PUBLISH
+                            putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
+                            putExtra(MqttBackgroundService.EXTRA_PAYLOAD, "D!")
+                        }
+                        context.startService(intent)
+                    }
+                }
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                 icon = painterResource(R.drawable.download_speed),
                 label = "REMAINING TIME",
                 value = String.format("%.2f", currentData?.remainingTime ?: 0.00),
-                unit = "m/h",
+                unit = "h",
                 iconRight = painterResource(R.drawable.download_speed)
             )
             Spacer(modifier = Modifier.height(10.dp))
@@ -196,7 +211,7 @@ fun HomeScreen(
                 icon = painterResource(R.drawable.battery_3713201),
                 label = "BATTERY VOLTAGE",
                 value = String.format("%.1f", currentData?.batteryVoltage ?: 0.0),
-                unit = "m/h",
+                unit = "V",
                 iconRight = painterResource(R.drawable.download_speed)
             )
             Spacer(modifier = Modifier.height(10.dp))
@@ -214,20 +229,42 @@ fun HomeScreen(
                     }
                     context.startService(intent)
                 })
-            var switchState by remember { mutableStateOf(false) }
-            var switchState2 by remember { mutableStateOf(false) }
-            Spacer(modifier = Modifier.height(10.dp))
-            DeviceFieldWithSwitch(
-                modifier = Modifier.background(color = MaterialTheme.colorScheme.primary),
-                icon = painterResource(id = R.drawable.notification),
-                label = "AUTOMATIC REPORTS",
-                value = String.format("%d", currentData?.automaticReportsEnable ?: 0),
-                switchState = switchState,
-                onSwitchChange = { switchState = it }
-            )
+
+
             Spacer(modifier = Modifier.height(10.dp))
 
-            AdvanceControlRow()
+
+            AutomaticReports(
+                value = currentData?.automaticReportsEnable ?: 0,
+                onSwitchChange = { newState ->
+                    val dev = selected ?: return@AutomaticReports
+                    val command = if (newState) "EN1" else "EN0"
+
+                    val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                        action = MqttBackgroundService.ACTION_MANUAL_PUBLISH
+                        putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
+                        putExtra(MqttBackgroundService.EXTRA_PAYLOAD, command)
+                    }
+                    context.startService(intent)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            AdvanceControlRow(
+                value =  currentData?.mainValveStatus ?: 0,
+                onSwitchChange = { newState ->
+                    val dev = selected ?: return@AdvanceControlRow
+                    val command = if (newState) "V1" else "V0"
+
+                    val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                        action = MqttBackgroundService.ACTION_MANUAL_PUBLISH
+                        putExtra(MqttBackgroundService.EXTRA_DEVICE_ID, dev.deviceId)
+                        putExtra(MqttBackgroundService.EXTRA_PAYLOAD, command)
+                    }
+                    context.startService(intent)
+                }
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
             UUIDField(uuid = device?.deviceId ?: "No Device")
@@ -251,6 +288,30 @@ fun HomeScreen(
                     confirmButton = {
                         TextButton(onClick = { showNoInternetDialog = false }) {
                             Text("OK")
+                        }
+                    }
+                )
+            }
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Device") },
+                    text = { Text("Are you sure you want to delete this device?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteSelectedDevice()
+                                showDeleteDialog = false
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showDeleteDialog = false }
+                        ) {
+                            Text("Cancel")
                         }
                     }
                 )
@@ -504,7 +565,7 @@ fun DeviceField(
         }
     }
 }
-@Composable
+/*@Composable
 fun SpeedSettingRow(speed : String, onBtnClick: (String) -> Unit  ) {
     var showSpeedField by remember { mutableStateOf(false) }
     var speedInput by remember { mutableStateOf("") }
@@ -594,8 +655,125 @@ fun SpeedSettingRow(speed : String, onBtnClick: (String) -> Unit  ) {
             }
         }
     }
-}
+}*/
 @Composable
+fun SpeedSettingRow(
+    speed: String,
+    onBtnClick: (String) -> Unit
+) {
+    var showSpeedField by remember { mutableStateOf(false) }
+    var speedInput by remember { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf(false) }
+
+    Column {
+        // Current Speed Row
+        DeviceField(
+            icon = painterResource(R.drawable.optimization),
+            label = "SPEED SETTING",
+            value = speed,
+            unit = "m/h",
+            iconRight = painterResource(R.drawable.down_arrow),
+            onRightIconClick = {
+                showSpeedField = !showSpeedField
+            }
+        )
+
+        // Appears only when icon is clicked
+        if (showSpeedField) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left Icon
+                Icon(
+                    painter = painterResource(R.drawable.download_speed),
+                    contentDescription = "Speed",
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Label
+                Text(
+                    text = "CHANGE SPEED",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    modifier = Modifier.width(80.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                // Input field
+                OutlinedTextField(
+                    value = speedInput,
+                    onValueChange = { input ->
+                        // Allow only numbers
+                        if (input.all { it.isDigit() } && input.length <= 2) {
+                            speedInput = input
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("ENTER SPEED") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
+                        cursorColor = Color.Black
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                Spacer(modifier = Modifier.width(25.dp))
+
+                Button(
+                    onClick = {
+                        val inputInt = speedInput.toIntOrNull()
+                        if (inputInt == null || inputInt !in 1..99) {
+                            showErrorDialog = true
+                        } else {
+                            // Pad with zero if single digit (e.g., 6 -> 06)
+                            val formattedSpeed = inputInt.toString().padStart(2, '0')
+                            onBtnClick(formattedSpeed)
+                            showSpeedField = false
+                        }
+                    },
+                    modifier = Modifier
+                        .height(50.dp)
+                        .width(50.dp)
+                        .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
+                    shape = RoundedCornerShape(2.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("OK", color = Color.Black, fontSize = 12.sp)
+                }
+            }
+        }
+
+        // Error dialog
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                confirmButton = {
+                    TextButton(onClick = { showErrorDialog = false }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Invalid Speed") },
+                text = { Text("Speed must be between 1 and 99.") }
+            )
+        }
+    }
+}
+
+/*@Composable
 fun PressureSettingRow(value:String,limit:String,onBtnClick: (String) -> Unit) {
     var showField by remember { mutableStateOf(false) }
     var newValue by remember { mutableStateOf("") }
@@ -608,7 +786,7 @@ fun PressureSettingRow(value:String,limit:String,onBtnClick: (String) -> Unit) {
             icon = painterResource(R.drawable.pressure_meter),
             label = "PRESSURE",
             value = value,
-            unit = "Pa",
+            unit = "bars",
             iconRight = painterResource(R.drawable.down_arrow),
             onRightIconClick = {
                 showField = !showField
@@ -715,19 +893,24 @@ fun PressureSettingRow(value:String,limit:String,onBtnClick: (String) -> Unit) {
             }
         }
     }
-}
+}*/
 @Composable
-fun AdvanceControlRow() {
+fun PressureSettingRow(
+    value: String,
+    limit: String,
+    onBtnClick: (String) -> Unit
+) {
     var showField by remember { mutableStateOf(false) }
-    var switchState2 by remember { mutableStateOf(false) }
+    var newValue by remember { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
     Column {
-
+        // Current Pressure Row (collapsible trigger)
         DeviceField(
-            icon = painterResource(R.drawable.advance_control),
-            label = "ADVANCE CONTROL",
-            value ="",
-            unit = "",
+            icon = painterResource(R.drawable.pressure_meter),
+            label = "PRESSURE",
+            value = value,
+            unit = "bars",
             iconRight = painterResource(R.drawable.down_arrow),
             onRightIconClick = {
                 showField = !showField
@@ -740,16 +923,189 @@ fun AdvanceControlRow() {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                // Label
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.pressure_meter),
+                        contentDescription = "Pressure Icon",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PRESSURE UPPER LIMIT",
+                        fontSize = 15.sp,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Black
+                    )
+                }
+
+                // Read-only field with current value
+                OutlinedTextField(
+                    value = limit,
+                    onValueChange = { }, // Read-only
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                    readOnly = true,
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledContainerColor = Color.White,
+                        disabledTextColor = Color.Black,
+                        disabledBorderColor = Color.Gray
+                    ),
+                    enabled = false
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Editable input field
+                    OutlinedTextField(
+                        value = newValue,
+                        onValueChange = { input ->
+                            newValue = input.filter { it.isDigit() }.take(2)
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        label = {
+                            Text(
+                                "Enter new value",
+                                color = Color.White,
+                                modifier = Modifier.background(color = Color.Unspecified)
+                            )
+                        },
+                        placeholder = { Text("00") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            cursorColor = Color.Black
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+
+                    Spacer(Modifier.width(16.dp))
+
+                    Button(
+                        onClick = {
+                            val inputInt = newValue.toIntOrNull()
+                            if (inputInt == null || inputInt !in 1..15) {
+                                showErrorDialog = true
+                            } else {
+                                // Format: pad with leading zero if < 10
+                                val formatted = inputInt.toString().padStart(2, '0')
+                                onBtnClick(formatted)   // send "01".."15"
+                                newValue = ""           // clear after sending
+                                showField = false       // collapse
+                            }
+                        },
+                        modifier = Modifier
+                            .height(50.dp)
+                            .width(50.dp)
+                            .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
+                        shape = RoundedCornerShape(2.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("OK", color = Color.Black, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Error dialog
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                confirmButton = {
+                    TextButton(onClick = { showErrorDialog = false }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Invalid Pressure") },
+                text = { Text("Pressure must be between 1 and 15.") }
+            )
+        }
+    }
+}
+@Composable
+fun AutomaticReports(
+    value: Int, // 0 or 1 directly from payload
+    onSwitchChange: (Boolean) -> Unit
+) {
+    // Local state for immediate UI response
+    var switchState by remember { mutableStateOf(value == 1) }
+
+    // Update state whenever payload changes
+    LaunchedEffect(value) {
+        switchState = (value == 1)
+    }
+
+    val displayText = if (switchState) "ON" else "OFF"
+
+    Column {
+        DeviceFieldWithSwitch(
+            modifier = Modifier.background(MaterialTheme.colorScheme.primary),
+            icon = painterResource(id = R.drawable.notification),
+            label = "AUTOMATIC REPORTS",
+            value = displayText,
+            switchState = switchState,
+            onSwitchChange = { newState ->
+                switchState = newState // update immediately for smooth UI
+                onSwitchChange(newState) // send command to device
+            }
+        )
+    }
+}
+
+
+
+
+@Composable
+fun AdvanceControlRow(
+    value: Int, // 0 or 1 from device
+    onSwitchChange: (Boolean) -> Unit
+) {
+    var showField by remember { mutableStateOf(false) }
+
+    val switchState = value == 1
+    val displayText = if (switchState) "OPEN" else "CLOSED"
+
+    Column {
+        DeviceField(
+            icon = painterResource(R.drawable.advance_control),
+            label = "ADVANCE CONTROL",
+            value = "",
+            unit = "",
+            iconRight = painterResource(R.drawable.down_arrow),
+            onRightIconClick = { showField = !showField }
+        )
+
+        if (showField) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
                     .padding(8.dp)
             ) {
                 DeviceFieldWithSwitch(
-
-                    icon = painterResource(id = R.drawable.pneumatic), // your icon
+                    icon = painterResource(R.drawable.pneumatic),
                     label = "MAIN VALVE CONTROL STATUS",
-                    value = "CLOSED",
-                    switchState = switchState2,
-                    onSwitchChange = { switchState2 = it }
+                    value = displayText,
+                    switchState = switchState,
+                    onSwitchChange = { newState ->
+                        onSwitchChange(newState) // just send command
+                    }
                 )
             }
         }
@@ -757,8 +1113,12 @@ fun AdvanceControlRow() {
 }
 
 
+
+
+
 @Composable
-fun DistanceRow(distance:String) {
+fun DistanceRow(distance:String,
+                onReset: () -> Unit) {
     var showDialog by remember { mutableStateOf(false) }
     var selectedOption by remember { mutableStateOf("Option 1") }
 
@@ -778,34 +1138,33 @@ fun DistanceRow(distance:String) {
         if (showDialog) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
+                title = { Text("Reset Remaining Distance") },
+                text = {
+                    Text(
+                        "Are you sure you want to reset the remaining distance?\n" +
+                                "After resetting, you will only be able to change the values from the hardware device."
+                    )
+                },
                 confirmButton = {
-                    TextButton(onClick = { showDialog = false }) {
+                    TextButton(
+                        onClick = {
+                            onReset()
+                            showDialog = false
+                        }
+                    ) {
                         Text("OK")
                     }
                 },
-                title = { Text("Choose an Option") },
-                text = {
-                    Column {
-                        val options = listOf("Option 1", "Option 2", "Option 3")
-                        options.forEach { option ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedOption = option }
-                                    .padding(vertical = 4.dp)
-                            ) {
-                                RadioButton(
-                                    selected = selectedOption == option,
-                                    onClick = { selectedOption = option }
-                                )
-                                Text(option, modifier = Modifier.padding(start = 8.dp))
-                            }
-                        }
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDialog = false }
+                    ) {
+                        Text("Cancel")
                     }
                 }
             )
         }
+
     }
 }
 

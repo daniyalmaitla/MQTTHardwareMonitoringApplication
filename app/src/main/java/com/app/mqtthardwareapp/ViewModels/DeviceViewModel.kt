@@ -114,19 +114,48 @@ class DeviceViewModel(private val repo: DeviceRepository,
     fun deleteSelectedDevice() {
         viewModelScope.launch {
             _selectedDevice.value?.let { device ->
+                // delete the selected one
                 repo.deleteDevice(device)
                 _selectedDevice.value = null
+
+                // get updated list from DB
+                val updatedDevices = repo.getAllDevicesOnce()
+
+                // shift slots: reassign sequentially (1 → N)
+                updatedDevices.forEachIndexed { index, dev ->
+                    val corrected = dev.copy(slot = index + 1)
+                    repo.addDevice(corrected)
+                }
             }
         }
     }
+
     private val _deviceDataMap = MutableStateFlow<Map<String, DeviceData>>(emptyMap())
     val deviceDataMap: StateFlow<Map<String, DeviceData>> = _deviceDataMap
 
-    fun updateDeviceData(deviceId: String, data: DeviceData) {
+    fun updateDeviceData(deviceId: String, newData: DeviceData) {
         _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
-            put(deviceId, data)
+            val oldData = this[deviceId]
+            if (oldData != null) {
+                // merge: only update non-null or changed fields
+                put(deviceId, oldData.copy(
+                    speedSetting = newData.speedSetting ?: oldData.speedSetting,
+                    currentSpeed = newData.currentSpeed ?: oldData.currentSpeed,
+                    remainingDistance = newData.remainingDistance ?: oldData.remainingDistance,
+                    remainingTime = newData.remainingTime ?: oldData.remainingTime,
+                    batteryVoltage = newData.batteryVoltage ?: oldData.batteryVoltage,
+                    pressure = newData.pressure ?: oldData.pressure,
+                    pressureLimit = newData.pressureLimit ?: oldData.pressureLimit,
+                    automaticReportsEnable = newData.automaticReportsEnable ?: oldData.automaticReportsEnable,
+                    mainValveStatus = newData.mainValveStatus ?: oldData.mainValveStatus
+                ))
+            } else {
+                // first time, just put it
+                put(deviceId, newData)
+            }
         }
     }
+
     fun setIntervalForAll(interval: Long) {
         viewModelScope.launch {
             repo.setIntervalForAll(interval)

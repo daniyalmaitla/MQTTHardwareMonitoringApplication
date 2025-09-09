@@ -3,6 +3,7 @@ package com.app.mqtthardwareapp.ViewModels
 import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.Data.DeviceDao
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class DeviceRepository(private val dao: DeviceDao) {
     suspend fun addDevice(device: Device) = dao.insertDevice(device)
@@ -16,4 +17,7 @@ class DeviceRepository(private val dao: DeviceDao) {
     }
     fun getEnabledDevices(): Flow<List<Device>> = dao.getEnabledDevices()
     suspend fun setIntervalForAll(interval: Long) = dao.setIntervalForAll(interval)
+    suspend fun getAllDevicesOnce(): List<Device> {
+        return getDevices().first()
+    }
 }
