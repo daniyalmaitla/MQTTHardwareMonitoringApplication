@@ -3,6 +3,7 @@ package com.app.mqtthardwareapp
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.app.mqtthardwareapp.Data.AppDatabase
 import com.app.mqtthardwareapp.Data.Device
+import com.app.mqtthardwareapp.Utils.AlarmHelper
+import com.app.mqtthardwareapp.Utils.NotificationHelper
 import com.app.mqtthardwareapp.Utils.PrefsHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -172,6 +175,7 @@ class MqttBackgroundService : Service() {
 
         mqttManager = MqttManager(this)
         startForegroundServiceNotification()
+        NotificationHelper.createChannels(this)
 
         connectivityManager = getSystemService(ConnectivityManager::class.java)
         registerNetworkCallback()
@@ -224,7 +228,7 @@ class MqttBackgroundService : Service() {
             }
     }
 
-    private fun handleIncoming(topic: String, payload: String) {
+    /*private fun handleIncoming(topic: String, payload: String) {
         Log.d("MQTT", "📥 $topic → $payload")
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             Intent("MQTT_DEVICE_DATA").apply {
@@ -232,7 +236,67 @@ class MqttBackgroundService : Service() {
                 putExtra("payload", payload)
             }
         )
+    }*/
+    private fun handleIncoming(topic: String, payload: String) {
+        Log.d("MQTT", "📥 $topic → $payload")
+
+        val deviceId = topic.removeSuffix("READ").removeSuffix("WRITE")
+        val values = payload.split(":") // adjust if payload format is different
+
+        val finalFinish = values.getOrNull(8)?.toIntOrNull()
+        val beforeFinish = values.getOrNull(9)?.toIntOrNull()
+        val lowPressure = values.getOrNull(10)?.toIntOrNull()
+        val lowSpeed = values.getOrNull(11)?.toIntOrNull()
+        Log.d(
+            "MQTT_SERVICE",
+            "📢 Parsed values → device=$deviceId finalFinish=$finalFinish beforeFinish=$beforeFinish lowPressure=$lowPressure lowSpeed=$lowSpeed"
+        )
+
+        // Reports
+        if (finalFinish == 1) {
+            showNotification(
+                deviceId,
+                "✅ Process Finished",
+                "Device $deviceId: The process has completed.",
+                CHANNEL_REPORTS
+            )
+        }
+
+        // Before finish notification
+        if (beforeFinish == 1) {
+            showNotification(
+                deviceId,
+                "⏳ Before Finish",
+                "Device $deviceId: The process is about to finish.",
+                CHANNEL_REPORTS
+            )
+        }
+
+        // Low pressure alarm
+        if (lowPressure == 1) {
+            showAlarmNotification(
+                deviceId,
+                "Pressure dropped below safe level!"
+            )
+        }
+
+// Low speed alarm
+        if (lowSpeed == 1) {
+            showAlarmNotification(
+                deviceId,
+                "Speed dropped below threshold!"
+            )
+        }
+
+        // still broadcast for UI updates
+        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
+            Intent("MQTT_DEVICE_DATA").apply {
+                putExtra("deviceId", deviceId)
+                putExtra("payload", payload)
+            }
+        )
     }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_MANUAL_PUBLISH) {
             val deviceId = intent.getStringExtra(EXTRA_DEVICE_ID)
@@ -283,6 +347,8 @@ class MqttBackgroundService : Service() {
         const val ACTION_MANUAL_PUBLISH = "ACTION_MANUAL_PUBLISH"
         const val EXTRA_DEVICE_ID = "deviceId"
         const val EXTRA_PAYLOAD = "payload"
+        const val CHANNEL_REPORTS = "reports_channel"
+        const val CHANNEL_ALARMS = "alarms_channel"
         fun startIfClientIdSet(context: Context) {
             val clientId = PrefsHelper.getClientId(context)
             if (clientId.isNotBlank()) {
@@ -294,6 +360,118 @@ class MqttBackgroundService : Service() {
             }
         }
     }
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val reportChannel = NotificationChannel(
+                CHANNEL_REPORTS,
+                "Device Reports",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = "Notifications for device reports" }
+
+            val alarmChannel = NotificationChannel(
+                CHANNEL_ALARMS,
+                "Device Alarms",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Critical alarms from devices"
+                enableVibration(true)
+            }
+
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(reportChannel)
+            manager.createNotificationChannel(alarmChannel)
+        }
+    }
+  /*  private fun showNotification(deviceId: String, title: String, message: String, channelId: String) {
+        Log.d("MQTT_SERVICE", "🔔 Building notification → $title : $message")
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("deviceId", deviceId)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            deviceId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(
+                if (channelId == CHANNEL_ALARMS) NotificationCompat.PRIORITY_MAX
+                else NotificationCompat.PRIORITY_DEFAULT
+            )
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
+        Log.d("MQTT_SERVICE", "✅ Notification sent for device=$deviceId")
+    }*/
+  private fun showNotification(deviceId: String, title: String, message: String, channelId: String) {
+      val intent = Intent(this, MainActivity::class.java).apply {
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+          putExtra("deviceId", deviceId)
+      }
+
+      val pendingIntent = PendingIntent.getActivity(
+          this,
+          deviceId.hashCode(),
+          intent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+
+      val notification = NotificationCompat.Builder(this, channelId)
+          .setSmallIcon(android.R.drawable.ic_dialog_info)
+          .setContentTitle(title)
+          .setContentText(message)
+          .setPriority(
+              if (channelId == NotificationHelper.CHANNEL_ALARMS)
+                  NotificationCompat.PRIORITY_MAX
+              else
+                  NotificationCompat.PRIORITY_DEFAULT
+          )
+          .setContentIntent(pendingIntent)
+          .setAutoCancel(true)
+          .build()
+
+      val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      manager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
+  }
+    private fun showAlarmNotification(deviceId: String, message: String) {
+        // Start looping alarm sound
+        AlarmHelper.startAlarm(this)
+
+        // Intent to stop alarm
+        val stopIntent = Intent(this, AlarmStopReceiver::class.java).apply {
+            putExtra("deviceId", deviceId)
+        }
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ALARMS)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("⚠️ Alarm: Device $deviceId")
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true) // keeps notification until user stops
+            .addAction(android.R.drawable.ic_media_pause, "Stop Alarm", stopPendingIntent)
+            .build()
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(deviceId.hashCode(), notification)
+    }
+
+
+
 
 
 

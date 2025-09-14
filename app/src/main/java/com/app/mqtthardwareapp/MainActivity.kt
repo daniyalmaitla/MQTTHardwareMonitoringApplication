@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -123,6 +124,23 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+
+                requestPermissions(
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
+        }
+        val deviceId = intent.getStringExtra("deviceId")
+        if (!deviceId.isNullOrEmpty()) {
+            Log.d("MQTT", "🔔 Notification tapped for device $deviceId")
+            // store it temporarily → use later inside Compose navigation
+            // e.g., pass to a variable, ViewModel, or SavedStateHandle
+        }
+
 
         // spin up service
         /*val serviceIntent = Intent(this, MqttBackgroundService::class.java)*/
@@ -150,7 +168,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             MqttHardwareAppTheme {
                 val navController = rememberNavController()
-                AppNavigation(navController, repo)
+                val startDeviceId = intent.getStringExtra("deviceId")
+                AppNavigation(navController, repo, startDeviceId)
             }
         }
 
@@ -169,10 +188,11 @@ class MainActivity : ComponentActivity() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mqttReceiver)
         Log.d("MQTT_UI", "Unregistered mqttReceiver")
     }
+
 }
 
 @Composable
-fun AppNavigation(navController: NavHostController,repo: DeviceRepository) {
+fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?) {
     val viewModel: DeviceViewModel = viewModel(
         factory = DeviceViewModelFactory(repo) // custom factory if needed
     )
@@ -180,12 +200,14 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository) {
         composable("home") { HomeScreen(
             navController = navController,
             onMachineClick = {navController.navigate("device_reg")},
-            viewModel = viewModel)}
+            viewModel = viewModel,
+            startDeviceId = startDeviceId)}
         composable("device_reg") {
             DeviceRegScreen(
                 navController = navController,
                 repo = repo,
-                viewModel = viewModel
+                viewModel = viewModel,
+
             ) }
     }
 }

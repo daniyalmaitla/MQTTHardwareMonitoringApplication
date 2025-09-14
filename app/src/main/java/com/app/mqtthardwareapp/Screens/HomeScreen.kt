@@ -91,7 +91,8 @@ import androidx.compose.ui.text.input.KeyboardType
 fun HomeScreen(
     navController: NavController,
     onMachineClick : () ->Unit,
-    viewModel: DeviceViewModel
+    viewModel: DeviceViewModel,
+    startDeviceId: String? = null
 
 ){
     val state by viewModel.state.collectAsState()
@@ -101,6 +102,13 @@ fun HomeScreen(
     val selected by viewModel.selectedDevice.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
     val deviceDataMap by viewModel.deviceDataMap.collectAsState()
+    LaunchedEffect(startDeviceId, enabledDevices) {
+        if (!startDeviceId.isNullOrEmpty()) {
+            enabledDevices.firstOrNull { it.deviceId == startDeviceId }?.let {
+                viewModel.selectDevice(it)
+            }
+        }
+    }
 
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
 

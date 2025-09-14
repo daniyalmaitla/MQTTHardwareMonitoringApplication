@@ -687,7 +687,12 @@ fun ClientIdField(
 ) {
     OutlinedTextField(
         value = clientId,
-        onValueChange = { onClientIdChange(it) },
+        onValueChange = { newValue ->
+
+            if (newValue.length <= 15) {
+                onClientIdChange(newValue)
+            }
+        },
         label = { Text("Mobile Number *") },
         placeholder = { Text("Enter your Mobile Number") },
         singleLine = true,
@@ -695,20 +700,26 @@ fun ClientIdField(
             .fillMaxWidth()
             .padding(8.dp),
         keyboardOptions = KeyboardOptions.Default.copy(
-            keyboardType = KeyboardType.Text,
+            keyboardType = KeyboardType.Phone,
             imeAction = ImeAction.Done
         ),
+        isError = clientId.isNotEmpty() && clientId.length < 10,
+        supportingText = {
+            if (clientId.isNotEmpty() && clientId.length < 10) {
+                Text("Must be at least 10 digits")
+            }
+        },
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            disabledContainerColor =MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             focusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
             unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
-
         ),
         shape = RectangleShape
     )
 }
+
 
 
 
