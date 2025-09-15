@@ -9,22 +9,30 @@ import android.net.NetworkRequest
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,6 +42,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +57,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -85,6 +96,12 @@ import com.journeyapps.barcodescanner.ScanOptions
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.window.Dialog
+import com.app.mqtthardwareapp.Data.Device
+import com.app.mqtthardwareapp.DeviceData
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material.icons.filled.Close
 
 
 @Composable
@@ -102,6 +119,7 @@ fun HomeScreen(
     val selected by viewModel.selectedDevice.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
     val deviceDataMap by viewModel.deviceDataMap.collectAsState()
+    val enabledDeviceView = viewModel.enabledDevicesWithData.collectAsState().value
     LaunchedEffect(startDeviceId, enabledDevices) {
         if (!startDeviceId.isNullOrEmpty()) {
             enabledDevices.firstOrNull { it.deviceId == startDeviceId }?.let {
@@ -155,7 +173,7 @@ fun HomeScreen(
             rememberScrollState()
         )){
 
-            DeviceSelectorField(
+            /*DeviceSelectorField(
                 placeholder = "Select Device",
                 suggestions = enabledDevices.map { it.name },
                 selectedDevice = selected?.name ?: "Select Device",
@@ -163,6 +181,16 @@ fun HomeScreen(
 
                     enabledDevices.firstOrNull { it.name == name }?.let {
                         viewModel.selectDevice(it)
+                    }
+                }
+            )*/
+            DeviceSelectorField(
+                placeholder = "Select Device",
+                enabledDevices = enabledDeviceView,
+                selectedDevice = selected?.name ?: "Select Device",
+                onDeviceSelected = { deviceId ->
+                    enabledDeviceView.firstOrNull { it.device.deviceId == deviceId }?.let {
+                        viewModel.selectDevice(it.device)
                     }
                 }
             )
@@ -397,7 +425,7 @@ fun HomeTopbar(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
+/*@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceSelectorField(
 
@@ -497,7 +525,229 @@ fun DeviceSelectorField(
             }
         )
     }
+}*/
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun DeviceSelectorField(
+    placeholder: String,
+    enabledDevices: List<DeviceWithData>,
+    selectedDevice: String,
+    onDeviceSelected: (String) -> Unit
+) {
+    val displayText = if (selectedDevice.isBlank()) placeholder else selectedDevice
+
+    // dialog (names + radios) and surface (grid) states
+    var dialogOpen by remember { mutableStateOf(false) }          // opened by trailing icon inside textfield
+    var surfaceExpanded by remember { mutableStateOf(false) }     // opened by the separate down-arrow icon
+
+    // selected name inside dialog (keeps in sync with incoming selectedDevice)
+    var dialogSelectedName by remember { mutableStateOf(selectedDevice) }
+    LaunchedEffect(selectedDevice) { dialogSelectedName = selectedDevice }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.cloud_platform),
+                contentDescription = "Device Icon",
+                modifier = Modifier.size(40.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dialogOpen = true } // Whole box is clickable
+            ) {
+                OutlinedTextField(
+                    value = displayText,
+                    onValueChange = { }, // not editable
+                    placeholder = { Text(placeholder) },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Dropdown"
+                        )
+                    },
+                    readOnly = true,
+                    enabled = false, // disables input focus
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        disabledTextColor = LocalContentColor.current,
+                        disabledPlaceholderColor = LocalContentColor.current.copy(alpha = 0.6f)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.width(5.dp))
+
+            // separate down-arrow icon: expands the surface below showing the grid of device boxes
+            Icon(
+                painter = painterResource(R.drawable.down_arrow),
+                contentDescription = "Show device grid",
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable {
+                        surfaceExpanded = !surfaceExpanded
+                        // close dialog if it's open
+                        if (dialogOpen) dialogOpen = false
+                    }
+            )
+        }
+
+        // ---- Dialog with radio buttons for device NAMES ----
+        if (dialogOpen) {
+            AlertDialog(
+                onDismissRequest = { dialogOpen = false },
+                title = { Text(text = "Choose Device") },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // show list of names as radio items
+                        enabledDevices.forEach { deviceWithData ->
+                            val name = deviceWithData.device.name
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        dialogSelectedName = name
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = (dialogSelectedName == name),
+                                    onClick = { dialogSelectedName = name }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = name, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        // map selected name -> deviceId and notify
+                        enabledDevices.firstOrNull { it.device.name == dialogSelectedName }?.let {
+                            onDeviceSelected(it.device.deviceId)
+                        }
+                        dialogOpen = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { dialogOpen = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // ---- Surface expanded below the field: shows grid of DeviceBox cards ----
+        val gridState = rememberLazyGridState()
+        if (surfaceExpanded) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(color = MaterialTheme.colorScheme.surfaceContainer)
+                    .heightIn(max = 360.dp)
+                    .padding(top = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                tonalElevation = 6.dp
+            ) {
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(color = MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Enabled Devices", style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { surfaceExpanded = false }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close"
+                                )
+                            }
+                        }
+
+
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                state = gridState,
+                                modifier = Modifier.fillMaxSize()
+                                    .background(color = MaterialTheme.colorScheme.surfaceContainer)
+                                    .padding(horizontal = 8.dp),
+                                contentPadding = PaddingValues(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(enabledDevices) { deviceWithData ->
+                                    DeviceBox(
+                                        deviceWithData = deviceWithData,
+                                        onClick = {
+                                            onDeviceSelected(deviceWithData.device.deviceId)
+                                        }
+                                    )
+                                }
+                            }
+
+
+
+
+
+                    }
+
+
+
+            }
+        }
+    }
 }
+
+/** Example DeviceBox — show a compact card with device identity + key fields **/
+@Composable
+fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth().background(color = MaterialTheme.colorScheme.primary),
+        shape = RectangleShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.background(color = MaterialTheme.colorScheme.primary).padding(8.dp)) {
+            Text(text = deviceWithData.device.name, style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val d = deviceWithData.data
+            // show a few values; use safe fallbacks
+            Text(text = "Speed: ${d?.speedSetting ?: "-"}")
+            Text(text = "Speed: ${d?.currentSpeed ?: "-"}")
+            Text(text = "Rem Dist: ${d?.remainingDistance ?: "-"}")
+            Text(text = "Pressure: ${d?.pressure ?: "-"}")
+            Text(text = "Battery: ${d?.batteryVoltage ?: "-"}", maxLines = 1)
+            Text(
+                text = "Final Finish: ${if (d?.finalFinishNotification == 0) "Off" else "On"}",
+                maxLines = 1
+            )
+
+            Text(
+                text = "Low Pressure Alarm: ${if (d?.lowPressureAlarm == 0) "Off" else "On"}",
+                maxLines = 1
+            )
+        }
+    }
+}
+
+data class DeviceWithData(
+    val device: Device,
+    val data: DeviceData?
+)
+
 @Composable
 fun DeviceField(
     modifier: Modifier = Modifier,

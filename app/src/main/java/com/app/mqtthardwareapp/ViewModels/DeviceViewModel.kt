@@ -7,11 +7,13 @@ import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.DeviceData
 import com.app.mqtthardwareapp.Events.DeviceEvent
 import com.app.mqtthardwareapp.MqttManager
+import com.app.mqtthardwareapp.Screens.DeviceWithData
 import com.app.mqtthardwareapp.States.DeviceState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -130,8 +132,18 @@ class DeviceViewModel(private val repo: DeviceRepository,
         }
     }
 
+
     private val _deviceDataMap = MutableStateFlow<Map<String, DeviceData>>(emptyMap())
     val deviceDataMap: StateFlow<Map<String, DeviceData>> = _deviceDataMap
+    val enabledDevicesWithData: StateFlow<List<DeviceWithData>> =
+        combine(enabledDevices, deviceDataMap) { devices, dataMap ->
+            devices.map { device ->
+                DeviceWithData(
+                    device = device,
+                    data = dataMap[device.deviceId] // match by deviceId
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun updateDeviceData(deviceId: String, newData: DeviceData) {
         _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
