@@ -159,7 +159,9 @@ class DeviceViewModel(private val repo: DeviceRepository,
                     pressure = newData.pressure ?: oldData.pressure,
                     pressureLimit = newData.pressureLimit ?: oldData.pressureLimit,
                     automaticReportsEnable = newData.automaticReportsEnable ?: oldData.automaticReportsEnable,
-                    mainValveStatus = newData.mainValveStatus ?: oldData.mainValveStatus
+                    mainValveStatus = newData.mainValveStatus ?: oldData.mainValveStatus,
+                    finalFinishNotification = newData.finalFinishNotification?:oldData.finalFinishNotification,
+                    lowPressureAlarm = newData.lowPressureAlarm?:oldData.lowPressureAlarm
                 ))
             } else {
                 // first time, just put it

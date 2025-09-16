@@ -686,7 +686,7 @@ fun ClientIdField(
     onClientIdChange: (String) -> Unit
 ) {
     OutlinedTextField(
-        value = clientId,
+        value = "IrrigationMaster_"+clientId,
         onValueChange = { newValue ->
 
             if (newValue.length <= 15) {

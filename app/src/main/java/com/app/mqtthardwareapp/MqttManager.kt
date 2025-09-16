@@ -468,14 +468,12 @@ import javax.net.ssl.SSLSocketFactory
 
 class MqttManager(
     private val context: Context,
-    /*private val serverUri: String = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",*/
-    private val serverUri: String = "ssl://c16a64b8b7da4ef3b4ed291c2b44b4b7.s1.eu.hivemq.cloud:8883",
-    /*private val username: String = "positron",
-    private val password: String = "positron"*/
-    private val username: String = "testuser",
-    private val password: String = "Testuser1"
+    private val serverUri: String = "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",
+    private val username: String = "positron",
+    private val password: String = "positron"
+
 ) {
-   /* private val clientId = "AppDevelopers-" + UUID.randomUUID()*/
+
    private val clientId: String by lazy {
        PrefsHelper.getClientId(context).ifBlank {
            throw IllegalStateException("❌ Client ID is missing! User must set it before connecting.")

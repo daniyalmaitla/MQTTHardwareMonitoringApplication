@@ -102,6 +102,7 @@ import com.app.mqtthardwareapp.DeviceData
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.text.style.TextAlign
 
 
 @Composable
@@ -648,6 +649,7 @@ fun DeviceSelectorField(
         // ---- Surface expanded below the field: shows grid of DeviceBox cards ----
         val gridState = rememberLazyGridState()
         if (surfaceExpanded) {
+            Spacer(modifier = Modifier.height(10.dp))
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -711,16 +713,29 @@ fun DeviceSelectorField(
 }
 
 /** Example DeviceBox — show a compact card with device identity + key fields **/
-@Composable
+/*@Composable
 fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
     Card(
         modifier = Modifier
-            .fillMaxWidth().background(color = MaterialTheme.colorScheme.primary),
+            .fillMaxWidth().border(3.dp, color = Color.Black),
         shape = RectangleShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.background(color = MaterialTheme.colorScheme.primary).padding(8.dp)) {
-            Text(text = deviceWithData.device.name, style = MaterialTheme.typography.titleSmall)
+        Column(modifier = Modifier
+            .fillMaxWidth().background(color = MaterialTheme.colorScheme.surfaceBright)
+            .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally 
+        ) {
+            // Device name centered
+            Text(
+                text = deviceWithData.device.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.Black
+            )
+
             Spacer(modifier = Modifier.height(6.dp))
 
             val d = deviceWithData.data
@@ -731,17 +746,103 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
             Text(text = "Pressure: ${d?.pressure ?: "-"}")
             Text(text = "Battery: ${d?.batteryVoltage ?: "-"}", maxLines = 1)
             Text(
-                text = "Final Finish: ${if (d?.finalFinishNotification == 0) "Off" else "On"}",
-                maxLines = 1
+                text = "Final Finish: " + when (d?.finalFinishNotification) {
+                    0 -> "Off"
+                    1 -> "On"
+                    else -> "-"
+                }
             )
 
             Text(
-                text = "Low Pressure Alarm: ${if (d?.lowPressureAlarm == 0) "Off" else "On"}",
-                maxLines = 1
+                text = "Low Pressure: " + when (d?.lowPressureAlarm) {
+                    0 -> "Off"
+                    1 -> "On"
+                    else -> "-"
+                }
             )
         }
     }
+}*/
+@Composable
+fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
+    val d = deviceWithData.data
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, color = Color.Black),
+        shape = RectangleShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                ,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(15.dp))
+            Text(
+                modifier = Modifier.fillMaxWidth().background(color = MaterialTheme.colorScheme.surfaceBright).padding(6.dp),
+                text = deviceWithData.device.name,
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(5.dp))
+
+            // Titles left, values right
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(4.dp).border(1.dp, color = Color.Black),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(8.dp).weight(1f)
+                ) {
+                    Text("Speed:",color = Color.Black)
+                    Text("Speed:",color = Color.Black)
+                    Text("Re Dis:",color = Color.Black)
+                    Text("Press:",color = Color.Black)
+                    Text("Battery:",color = Color.Black)
+                    Text("Finish:",color = Color.Black)
+                    Text("Press:",color = Color.Black)
+                }
+
+                Column(
+
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(10.dp).weight(1f)
+                ) {
+                    Text("${d?.speedSetting ?: "-"}",color = Color.Blue)
+                    Text("${d?.currentSpeed ?: "-"}",color = Color.Blue)
+                    Text("${d?.remainingDistance ?: "-"}",color = Color.Blue)
+                    Text("${d?.pressure ?: "-"}",color = Color.Blue)
+                    Text("${d?.batteryVoltage ?: "-"}",color = Color.Blue)
+                    Text(
+                        when (d?.finalFinishNotification) {
+                            0 -> "Off"
+                            1 -> "On"
+                            else -> "-"
+                        },color = Color.Blue
+                    )
+                    Text(
+                        when (d?.lowPressureAlarm) {
+                            0 -> "Off"
+                            1 -> "On"
+                            else -> "-"
+                        },color = Color.Blue
+                    )
+                }
+            }
+        }
+    }
 }
+
 
 data class DeviceWithData(
     val device: Device,
@@ -1654,7 +1755,7 @@ fun bottomBar(onDelete: ()->Unit) {
             Icon(
                 painter = painterResource(R.drawable.trash),
                 contentDescription = null,
-                modifier = Modifier.size(60.dp), // 👈 reduced to fit in bar
+                modifier = Modifier.size(60.dp),
                 tint = Color.Unspecified
             )
             Text(
