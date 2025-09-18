@@ -227,7 +227,7 @@ fun DeviceRegScreen(
 
     val state by viewModel.state.collectAsState()
     var communicationInterval by rememberSaveable(state.devices) {
-        mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "")
+        mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "50")
     }
     var showDuplicateDialog by remember { mutableStateOf(false) }
     var showClientIdDialog by remember { mutableStateOf(false) }
@@ -280,7 +280,7 @@ fun DeviceRegScreen(
                                 showClientIdDialog = true
                                 return@TopButtons
                             }
-                            PrefsHelper.saveClientId(context, clientId)
+                            PrefsHelper.saveClientId(context, "IrrigationMaster_$clientId")
                             MqttBackgroundService.startIfClientIdSet(context)
                             var hasDuplicate = false
                             for (d in devices) {
@@ -316,6 +316,17 @@ fun DeviceRegScreen(
                         onClientIdChange = { clientId = it }
                     )
                 }
+                item { Spacer(modifier = Modifier.height(4.dp)) }
+                item {
+
+                    BottomFields(
+                        interval = communicationInterval,
+                        onIntervalChange = { newVal -> communicationInterval =
+                            newVal.toString()
+                        }
+                    )
+
+                }
                 item { Spacer(modifier = Modifier.height(10.dp)) }
                 item { DeviceManagementScreen() }
                 itemsIndexed(devices) { index, device ->
@@ -336,16 +347,7 @@ fun DeviceRegScreen(
                     )
                 }
 
-                item {
 
-                        BottomFields(
-                            interval = communicationInterval,
-                            onIntervalChange = { newVal -> communicationInterval =
-                                newVal.toString()
-                            }
-                        )
-
-                }
 
             }
             if (showClientIdDialog) {
@@ -554,36 +556,37 @@ fun BottomFields(
     onIntervalChange: (Long) -> Unit
 ) {
     var intervalText by rememberSaveable { mutableStateOf(interval) }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.primary)
-    ) {
-        Text("COMMUNICATION INTERVAL ", fontWeight = FontWeight.Bold)
-        OutlinedTextField(
-            value = intervalText,
-            onValueChange = { newText ->
-                intervalText = newText
-                val intervalLong = newText.toLongOrNull() ?: 0L
-                onIntervalChange(intervalLong) // update all devices
-            },
+    Row(modifier = Modifier.padding(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
             modifier = Modifier
-                .width(100.dp)
-                .padding(10.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Gray,
-                unfocusedBorderColor = Color.Gray,
-                disabledBorderColor = Color.Gray,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent
-            ),
-            shape = RectangleShape
-        )
-        Text(" Sec", fontWeight = FontWeight.Bold)
+                .fillMaxWidth()
+                .background(color = MaterialTheme.colorScheme.primary)
+        ) {
+            Text("COMMUNICATION INTERVAL ", fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = intervalText,
+                onValueChange = { newText ->
+                    intervalText = newText
+                    val intervalLong = newText.toLongOrNull() ?: 0L
+                    onIntervalChange(intervalLong) // update all devices
+                },
+                modifier = Modifier
+                    .width(100.dp)
+                    .padding(10.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Gray,
+                    unfocusedBorderColor = Color.Gray,
+                    disabledBorderColor = Color.Gray,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent
+                ),
+                shape = RectangleShape
+            )
+            Text(" Sec", fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -686,7 +689,7 @@ fun ClientIdField(
     onClientIdChange: (String) -> Unit
 ) {
     OutlinedTextField(
-        value = "IrrigationMaster_"+clientId,
+        value = clientId,
         onValueChange = { newValue ->
 
             if (newValue.length <= 15) {

@@ -787,7 +787,7 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
             Text(
                 modifier = Modifier.fillMaxWidth().background(color = MaterialTheme.colorScheme.surfaceBright).padding(6.dp),
                 text = deviceWithData.device.name,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = Color.Black,
                 textAlign = TextAlign.Center
             )
@@ -799,17 +799,22 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(4.dp).border(1.dp, color = Color.Black),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                val valueTextStyle = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.Blue,
+                    fontSize = 12.sp
+                )
+
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(8.dp).weight(1f)
                 ) {
-                    Text("Speed:",color = Color.Black)
-                    Text("Speed:",color = Color.Black)
-                    Text("Re Dis:",color = Color.Black)
-                    Text("Press:",color = Color.Black)
-                    Text("Battery:",color = Color.Black)
-                    Text("Finish:",color = Color.Black)
-                    Text("Press:",color = Color.Black)
+                    Text("Speed:",color = Color.Black, style = valueTextStyle)
+                    Text("Speed:",color = Color.Black, style = valueTextStyle)
+                    Text("Re Dis:",color = Color.Black, style = valueTextStyle)
+                    Text("Press:",color = Color.Black, style = valueTextStyle)
+                    Text("Battery:",color = Color.Black, style = valueTextStyle)
+                    Text("Finish:",color = Color.Black, style = valueTextStyle)
+                    Text("Press:",color = Color.Black, style = valueTextStyle)
                 }
 
                 Column(
@@ -818,24 +823,24 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
                     horizontalAlignment = Alignment.End,
                     modifier = Modifier.padding(10.dp).weight(1f)
                 ) {
-                    Text("${d?.speedSetting ?: "-"}",color = Color.Blue)
-                    Text("${d?.currentSpeed ?: "-"}",color = Color.Blue)
-                    Text("${d?.remainingDistance ?: "-"}",color = Color.Blue)
-                    Text("${d?.pressure ?: "-"}",color = Color.Blue)
-                    Text("${d?.batteryVoltage ?: "-"}",color = Color.Blue)
+                    Text("${d?.speedSetting ?: "-"}",color = Color.Blue, style = valueTextStyle)
+                    Text("${d?.currentSpeed ?: "-"}",color = Color.Blue, style = valueTextStyle)
+                    Text("${d?.remainingDistance ?: "-"}",color = Color.Blue, style = valueTextStyle)
+                    Text("${d?.pressure ?: "-"}",color = Color.Blue, style = valueTextStyle)
+                    Text("${d?.batteryVoltage ?: "-"}",color = Color.Blue, style = valueTextStyle)
                     Text(
                         when (d?.finalFinishNotification) {
                             0 -> "Off"
                             1 -> "On"
                             else -> "-"
-                        },color = Color.Blue
+                        },color = Color.Blue, style = valueTextStyle
                     )
                     Text(
                         when (d?.lowPressureAlarm) {
                             0 -> "Off"
                             1 -> "On"
                             else -> "-"
-                        },color = Color.Blue
+                        },color = Color.Blue, style = valueTextStyle
                     )
                 }
             }
