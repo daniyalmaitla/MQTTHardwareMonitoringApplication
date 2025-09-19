@@ -31,139 +31,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/*class MqttBackgroundService : Service() {
 
-    private lateinit var mqttManager: MqttManager
-    private val handler = Handler()
-    private val interval: Long = 30_000
-
-
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-
-    override fun onCreate() {
-        super.onCreate()
-
-        mqttManager = MqttManager(this)
-        startForegroundServiceNotification() // your existing notif builder
-
-
-        serviceScope.launch {
-            mqttManager.connect(
-                onConnected = {
-                    Log.d("MQTT", "✅ Connected")
-
-                    // after first connect, start watching DB
-                    serviceScope.launch {
-                        AppDatabase.getDatabase(applicationContext)
-                            .deviceDao()
-                            .getEnabledDevices()      // Flow<List<Device>>
-                            .collect { enabledList ->
-                                // cancel & clear old timers/subs
-                                mqttManager.clearPeriodicReads()
-
-                                if (enabledList.isEmpty()) {
-                                    Log.d("MQTT", "ℹ No enabled devices")
-                                    return@collect
-                                }
-
-                                enabledList.forEach { device ->
-                                    val readTopic  = "${device.deviceId}READ"
-                                    val writeTopic = "${device.deviceId}WRITE"
-                                    val payload    = "SN${device.deviceId}E"
-
-                                    mqttManager.subscribe(readTopic)
-                                    mqttManager.subscribe(writeTopic)
-                                    mqttManager.startPeriodicRead(
-                                        topic = readTopic,
-                                        payload = payload,
-                                        intervalSec = device.interval
-                                    )
-                                }
-                            }
-                    }
-                },
-
-                onMessage = { topic, payload ->
-                    // raw log so you know what really arrived
-                    Log.d("MQTT", "📥 topic=$topic  payload=$payload")
-
-                    // optional parse
-                    val parsed = parsePayload(payload)
-
-                    // file debug (optional)
-                    File(applicationContext.filesDir, "mqtt_data.txt")
-                        .appendText("$parsed\n")
-
-                    // broadcast to whoever cares
-                    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-                        Intent("MQTT_DEVICE_DATA").apply {
-                            putExtra("deviceId", topic.removeSuffix("READ").removeSuffix("WRITE"))
-                            putExtra("payload", payload)
-                        }
-                    )
-                },
-                onDisconnected = {
-                    Log.w("MQTT", "⚠ disconnected")
-                }
-            )
-        }
-    }
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_MANUAL_PUBLISH) {
-            val deviceId = intent.getStringExtra(EXTRA_DEVICE_ID)
-            val payload  = intent.getStringExtra(EXTRA_PAYLOAD)
-            if (!deviceId.isNullOrEmpty() && !payload.isNullOrEmpty()) {
-                sendManualRead(deviceId, payload)
-            }
-        }
-        return START_STICKY
-    }
-
-    /** Publish over the existing MQTT connection */
-    fun sendManualRead(deviceId: String, command: String) {
-        val topic = "${deviceId}READ"
-        mqttManager.publish(topic, command)
-        Log.d("MQTT", "📤 Manual publish → topic=$topic payload=$command")
-    }
-
-
-    override fun onDestroy() {
-        super.onDestroy()
-        serviceScope.cancel()
-        mqttManager.disconnect()
-    }
-
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun startForegroundServiceNotification() {
-        val channelId = "mqtt_service_channel"
-        val channelName = "MQTT Background Service"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(chan)
-        }
-
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("MQTT Service Running")
-            .setContentText("Fetching data every 30 seconds...")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .build()
-
-        startForeground(1, notification)
-    }
-    companion object {
-        const val ACTION_MANUAL_PUBLISH = "ACTION_MANUAL_PUBLISH"
-        const val EXTRA_DEVICE_ID = "deviceId"
-        const val EXTRA_PAYLOAD = "payload"
-    }
-}*/
 
 class MqttBackgroundService : Service() {
     private lateinit var mqttManager: MqttManager
+    private val lastStates = mutableMapOf<String, MutableMap<String, Int>>()
+    private val acknowledgedAlarms = mutableMapOf<String, MutableMap<String, Boolean>>()
+
 
     // … existing fields
     private lateinit var connectivityManager: ConnectivityManager
@@ -273,7 +147,7 @@ class MqttBackgroundService : Service() {
         }
 
         // Low pressure alarm
-        if (lowPressure == 1) {
+        /*if (lowPressure == 1) {
             showAlarmNotification(
                 deviceId,
                 "Pressure dropped below safe level!"
@@ -286,9 +160,13 @@ class MqttBackgroundService : Service() {
                 deviceId,
                 "Speed dropped below threshold!"
             )
-        }
+        }*/
+        val deviceStates = lastStates.getOrPut(deviceId) { mutableMapOf() }
+        checkAndTriggerAlarm(deviceId, "lowPressure", lowPressure, "Pressure dropped below safe level!", deviceStates)
+        checkAndTriggerAlarm(deviceId, "lowSpeed", lowSpeed, "Speed dropped below threshold!", deviceStates)
 
-        // still broadcast for UI updates
+
+
         LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
             Intent("MQTT_DEVICE_DATA").apply {
                 putExtra("deviceId", deviceId)
@@ -296,6 +174,59 @@ class MqttBackgroundService : Service() {
             }
         )
     }
+    /*private fun checkAndTriggerAlarm(
+        deviceId: String,
+        field: String,
+        currentValue: Int?,
+        message: String,
+        deviceStates: MutableMap<String, Int>
+    ) {
+        if (currentValue == null) return
+
+        val lastValue = deviceStates[field] ?: 0
+        if (lastValue == 0 && currentValue == 1) {
+            // transition 0 -> 1 → trigger alarm
+            showAlarmNotification(deviceId, message)
+        }
+
+        // update stored state
+        deviceStates[field] = currentValue
+    }*/
+    private fun checkAndTriggerAlarm(
+        deviceId: String,
+        field: String,
+        currentValue: Int?,
+        message: String,
+        deviceStates: MutableMap<String, Int>
+    ) {
+        if (currentValue == null) return
+
+        val lastValue = deviceStates[field] ?: 0
+        val acknowledged = AlarmState.isAcknowledged(deviceId, field)
+
+        if (currentValue == 1) {
+            if (!acknowledged) {
+
+                Log.d("MQTT_SERVICE", "🔥 Alarm active device=$deviceId field=$field")
+                showAlarmNotification(deviceId, field, message)
+            } else {
+               Log.d("MQTT_SERVICE", "🚫 Alarm suppressed (user stopped) device=$deviceId field=$field")
+            }
+        }
+
+
+        if (lastValue == 1 && currentValue == 0) {
+           Log.d("MQTT_SERVICE", "🔄 Reset ack device=$deviceId field=$field")
+            AlarmState.clearAcknowledgement(deviceId, field)
+        }
+
+        // update stored state
+        deviceStates[field] = currentValue
+    }
+
+
+
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_MANUAL_PUBLISH) {
@@ -314,6 +245,7 @@ class MqttBackgroundService : Service() {
         mqttManager.publish(topic, command)
         Log.d("MQTT", "📤 Manual publish → topic=$topic payload=$command")
     }
+
 
 
     override fun onDestroy() {
@@ -442,7 +374,7 @@ class MqttBackgroundService : Service() {
       val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       manager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
   }
-    private fun showAlarmNotification(deviceId: String, message: String) {
+    /*private fun showAlarmNotification(deviceId: String, message: String) {
         // Start looping alarm sound
         AlarmHelper.startAlarm(this)
 
@@ -468,6 +400,40 @@ class MqttBackgroundService : Service() {
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(deviceId.hashCode(), notification)
+    }*/
+
+    private fun showAlarmNotification(deviceId: String, field: String, message: String) {
+        android.util.Log.d("MQTT_SERVICE", "🔔 showAlarmNotification -> device=$deviceId field=$field message=$message")
+
+        // Start looping alarm sound
+        AlarmHelper.startAlarm(this)
+
+        // Intent to stop alarm (with deviceId + field)
+        val stopIntent = Intent(this, AlarmStopReceiver::class.java).apply {
+            putExtra("deviceId", deviceId)
+            putExtra("field", field)
+        }
+
+        val requestCode = (deviceId + field).hashCode()
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            this,
+            requestCode,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ALARMS)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("⚠️ Alarm: Device $deviceId")
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true) // keeps notification until user stops
+            .addAction(android.R.drawable.ic_media_pause, "Stop Alarm", stopPendingIntent)
+            .build()
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // use device+field unique id so stopping cancels the correct notification
+        manager.notify(requestCode, notification)
     }
 
 
@@ -478,169 +444,6 @@ class MqttBackgroundService : Service() {
 
 
 
-    // … rest of your class
 }
 
-/*private val publishRunnable = object : Runnable {
-        override fun run() {
-            // Send request every 30 sec
-            mqttManager.publish("1303202510000READ", "SN1303202510000E")
-            Log.d("MQTT-SERVICE", "📤 Sent periodic request")
-            handler.postDelayed(this, interval)
-        }
-    }*/
 
-/*override fun onCreate() {
-    super.onCreate()
-    mqttManager = MqttManager(this)
-
-    startForegroundServiceNotification()
-
-    mqttManager.connect(
-        onConnected = {
-            mqttManager.subscribe("1303202510000READ")
-            mqttManager.subscribe("1303202510000WRITE")
-
-            // ✅ Start periodic reads
-            mqttManager.startPeriodicRead(
-                topic = "1303202510000READ",
-                payload = "SN1303202510000E",
-                intervalSec = 30
-            )
-        },
-        onMessage = { topic, payload ->
-            Log.d("MQTT-SERVICE", "📥 Raw → $payload")
-
-            val deviceData = parsePayload(payload)
-
-            Log.d("MQTT-SERVICE", "✅ Parsed Data: $deviceData")
-
-            val logFile = File(applicationContext.filesDir, "mqtt_data.txt")
-            logFile.appendText("$deviceData\n")
-
-            val intent = Intent("MQTT_MESSAGE")
-            intent.putExtra("payload", payload)
-            sendBroadcast(intent)
-        },
-        onDisconnected = {
-            Log.w("MQTT-SERVICE", "⚠ Disconnected from broker")
-        }
-    )
-}*/
-/*override fun onCreate() {
-        super.onCreate()
-        mqttManager = MqttManager(this)
-        startForegroundServiceNotification()
-
-        serviceScope.launch {
-            val enabledDevices = AppDatabase.getDatabase(applicationContext)
-                .deviceDao()
-                .getEnabledDevices()
-
-            mqttManager.connect(
-                onConnected = {
-                    enabledDevices.forEach { device ->
-                        val readTopic  = "${device.deviceId}READ"
-                        val writeTopic = "${device.deviceId}WRITE"
-                        val payload    = "SN${device.deviceId}E"
-
-                        mqttManager.subscribe(readTopic)
-                        mqttManager.subscribe(writeTopic)
-
-                        mqttManager.startPeriodicRead(
-                            topic = readTopic,
-                            payload = payload,
-                            intervalSec = device.interval
-                        )
-                    }
-                },
-                onMessage = { topic, payload ->
-                    Log.d("MQTT-SERVICE", "📥 Raw → $payload")
-                    // TODO implement parsePayload()
-                    File(applicationContext.filesDir, "mqtt_data.txt").appendText("$payload\n")
-                    sendBroadcast(Intent("MQTT_MESSAGE").putExtra("payload", payload))
-                },
-                onDisconnected = { Log.w("MQTT-SERVICE", "⚠ Disconnected") }
-            )
-        }
-    }*/
-/*override fun onCreate() {
-    super.onCreate()
-    mqttManager = MqttManager(this)
-    startForegroundServiceNotification()
-
-    // Launch on IO dispatcher so Room query is off the main thread
-    CoroutineScope(Dispatchers.IO).launch {
-        // take one snapshot of all enabled devices
-        val enabledDevices: List<Device> = AppDatabase
-            .getDatabase(applicationContext)
-            .deviceDao()
-            .getEnabledDevices()      // returns Flow<List<Device>>
-            .first()                  // take first emission, convert Flow -> List
-
-        // switch back to main for MQTT connect
-        withContext(Dispatchers.Main) {
-            mqttManager.connect(
-                onConnected = {
-                    enabledDevices.forEach { device ->
-
-                        val readTopic  = "${device.deviceId}READ"
-                        val writeTopic = "${device.deviceId}WRITE"
-                        val payload    = "SN${device.deviceId}E"
-
-                        mqttManager.subscribe(readTopic)
-                        mqttManager.subscribe(writeTopic)
-
-                        mqttManager.startPeriodicRead(
-                            topic = readTopic,
-                            payload = payload,
-                            intervalSec = device.interval  // interval from DB
-                        )
-                    }
-                },
-                onMessage = { topic, payload ->
-                    Log.d("MQTT-SERVICE", "📥 Raw → $payload")
-                    val parsed = parsePayload(payload)
-                    File(applicationContext.filesDir, "mqtt_data.txt")
-                        .appendText("$parsed\n")
-                    sendBroadcast(Intent("MQTT_MESSAGE").putExtra("payload", payload))
-                },
-                onDisconnected = { Log.w("MQTT-SERVICE", "⚠ Disconnected") }
-            )
-        }
-    }
-}*/
-/*onMessage = { topic, payload ->
-                    Log.d("MQTT", "📥 Raw → $payload")
-                    // parse + persist
-                    val parsed = parsePayload(payload)
-                    File(applicationContext.filesDir, "mqtt_data.txt")
-                        .appendText("$parsed\n")
-
-                    // optional UI broadcast
-                    sendBroadcast(
-                        Intent("MQTT_MESSAGE").putExtra("payload", payload)
-                    )
-                },*/
-/* onMessage = { topic, payload ->
-     // parse the payload
-     val parsed = parsePayload(payload)
-
-     // normalize the topic -> just the device id
-     val deviceId = topic.removeSuffix("READ").removeSuffix("WRITE")
-
-     // broadcast to whoever wants it (Activity/ViewModel)
-     LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-         Intent("MQTT_DEVICE_DATA").apply {
-             putExtra("deviceId", deviceId)
-             putExtra("payload", payload)
-         }
-     )
-
-     // you could also update a repository singleton instead of broadcasting
- },*/
-/*override fun onDestroy() {
-        super.onDestroy()
-        handler.removeCallbacks(publishRunnable)
-        mqttManager.disconnect()
-    }*/

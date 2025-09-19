@@ -22,7 +22,7 @@ object AlarmHelper {
         }
     }
 
-    fun stopAlarm() {
+    fun stopAlarm(context: Context) {
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null

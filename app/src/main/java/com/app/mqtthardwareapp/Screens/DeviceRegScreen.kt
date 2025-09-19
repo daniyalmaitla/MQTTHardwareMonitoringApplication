@@ -1,5 +1,6 @@
 package com.app.mqtthardwareapp.Screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -30,6 +32,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -51,6 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
@@ -74,143 +79,8 @@ import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
 import com.app.mqtthardwareapp.Utils.PrefsHelper
 import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
-import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
+import org.intellij.lang.annotations.Language
 
-/*@Composable
-fun DeviceRegScreen(
-    navController: NavController,
-    repo: DeviceRepository,
-    viewModel: DeviceViewModel
-){
-    val state by viewModel.state.collectAsState()
-    var communicationInterval by rememberSaveable { mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "") }
-
-    var showDuplicateDialog by remember { mutableStateOf(false) }
-    var duplicateDeviceId by remember { mutableStateOf("") }
-
-    val devices = remember {
-        mutableStateListOf<Device>().apply {
-            repeat(20) { slot ->
-                add(
-                    state.devices.find { it.slot == slot + 1 }
-                        ?: Device(
-                            id = 0,
-                            slot = slot + 1,
-                            deviceId = "",
-                            name = "",
-                            interval = 1000L,
-                            enabled = false,
-                            subscribedReadTopic = "",
-                            subscribedWriteTopic = ""
-                        )
-                )
-            }
-        }
-    }
-
-
-
-    Scaffold(topBar = {RegTopbar()}) {paddingValues->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                item { Spacer(modifier = Modifier.height(12.dp)) }
-                item {
-                    TopButtons(
-                        onSaveExit = {
-                            var hasDuplicate = false
-
-                            devices.forEach { device ->
-                                if (device.deviceId.isNotBlank()) {
-                                    val exists = state.devices.any { it.deviceId == device.deviceId && it.slot != device.slot && it.name ==device.name }
-                                    if (exists) {
-                                        hasDuplicate = true
-                                        duplicateDeviceId = device.deviceId
-                                        return@forEach
-                                    }
-                                }
-                            }
-
-                            if (hasDuplicate) {
-                                showDuplicateDialog = true
-                            } else {
-                                devices.forEach { device ->
-                                    if (device.deviceId.isNotBlank()) { // Save only filled slots
-                                        viewModel.saveDevice(
-                                            id = device.id,
-                                            slot = device.slot,
-                                            deviceName = device.name,
-                                            deviceId = device.deviceId,
-                                            interval = device.interval,
-                                            enabled = device.enabled
-                                        )
-                                    }
-                                }
-                                navController.popBackStack()
-                            }
-                        }
-                        ,
-                        onExit = { navController.popBackStack() }
-                    )
-                }
-                item { Spacer(modifier = Modifier.height(2.dp)) }
-
-
-                item {
-                    DeviceManagementScreen()
-                }
-
-                // Device Rows
-
-                itemsIndexed(devices) { index, device ->
-                    DeviceRow(
-                        device = device,
-                        onDeviceChange = { updatedDevice ->
-                            devices[index] = updatedDevice
-                        }
-                    )
-                }
-                item {
-                    BottomFields(
-                        interval = communicationInterval,
-                        onIntervalChange = { newInterval ->
-                            communicationInterval = newInterval.toString()
-                            // Apply interval to all devices
-                            devices.replaceAll { it.copy(interval = newInterval) }
-                        }
-                    )
-                }
-
-                item { Spacer(modifier = Modifier.height(12.dp)) }
-
-
-                item { Spacer(modifier = Modifier.height(12.dp)) }
-
-
-            }
-            if (showDuplicateDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDuplicateDialog = false },
-                    confirmButton = {
-                        TextButton(onClick = { showDuplicateDialog = false }) {
-                            Text("OK")
-                        }
-                    },
-                    title = { Text("Duplicate Device") },
-                    text = { Text("Device already exists.") }
-                )
-            }
-
-
-
-        }
-    }
-}*/
 @Composable
 fun DeviceRegScreen(
     navController: NavController,
@@ -219,8 +89,9 @@ fun DeviceRegScreen(
 ) {
     val context = LocalContext.current
     var clientId by rememberSaveable {
-        mutableStateOf(PrefsHelper.getClientId(context))
+        mutableStateOf(PrefsHelper.getClientId(context).removePrefix("IrrigationMaster_"))
     }
+
     LaunchedEffect(Unit) {
         viewModel.onEvent(DeviceEvent.LoadDevices)
     }
@@ -233,18 +104,7 @@ fun DeviceRegScreen(
     var showClientIdDialog by remember { mutableStateOf(false) }
     var duplicateDeviceId by remember { mutableStateOf("") }
 
-    /*val devices = List(20) { slot ->
-        state.devices.find { it.slot == slot + 1 } ?: Device(
-            id = 0,
-            slot = slot + 1,
-            deviceId = "",
-            name = "",
-            interval = 1000L,
-            enabled = false,
-            subscribedReadTopic = "",
-            subscribedWriteTopic = ""
-        )
-    }*/
+
     val devices = remember {
         mutableStateListOf<Device>()
     }
@@ -272,6 +132,8 @@ fun DeviceRegScreen(
         Column(Modifier.fillMaxSize().padding(paddingValues)) {
 
             LazyColumn(Modifier.fillMaxSize()) {
+
+
                 item {
                     TopButtons(
                         onSaveExit = {
@@ -280,7 +142,7 @@ fun DeviceRegScreen(
                                 showClientIdDialog = true
                                 return@TopButtons
                             }
-                            PrefsHelper.saveClientId(context, "IrrigationMaster_$clientId")
+                            PrefsHelper.saveClientId(context, "IrrigationMaster_${clientId.trim()}")
                             MqttBackgroundService.startIfClientIdSet(context)
                             var hasDuplicate = false
                             for (d in devices) {
@@ -309,6 +171,7 @@ fun DeviceRegScreen(
                         onExit = { navController.popBackStack() }
                     )
                 }
+
                 item { Spacer(modifier = Modifier.height(10.dp)) }
                 item{
                     ClientIdField(
@@ -316,7 +179,7 @@ fun DeviceRegScreen(
                         onClientIdChange = { clientId = it }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(4.dp)) }
+
                 item {
 
                     BottomFields(
@@ -722,6 +585,47 @@ fun ClientIdField(
         shape = RectangleShape
     )
 }
+@Composable
+fun LanguageButtons() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Greek flag button
+        Button(
+            onClick = { /* TODO: change language to Greek */ },
+            shape = RoundedCornerShape(4.dp),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(width = 30.dp, height = 20.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.greece),
+                contentDescription = "Greek flag",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // UK flag button
+        Button(
+            onClick = { /* TODO: change language to English */ },
+            shape = RoundedCornerShape(4.dp),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(width = 30.dp, height = 20.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.united_kingdom),
+                contentDescription = "UK flag",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
 
 
 

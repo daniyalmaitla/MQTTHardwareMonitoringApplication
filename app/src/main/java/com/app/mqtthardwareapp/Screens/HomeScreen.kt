@@ -174,17 +174,9 @@ fun HomeScreen(
             rememberScrollState()
         )){
 
-            /*DeviceSelectorField(
-                placeholder = "Select Device",
-                suggestions = enabledDevices.map { it.name },
-                selectedDevice = selected?.name ?: "Select Device",
-                onDeviceSelected = { name ->
 
-                    enabledDevices.firstOrNull { it.name == name }?.let {
-                        viewModel.selectDevice(it)
-                    }
-                }
-            )*/
+             LanguageButtons()
+            Spacer(modifier = Modifier.height(10.dp))
             DeviceSelectorField(
                 placeholder = "Select Device",
                 enabledDevices = enabledDeviceView,
@@ -890,7 +882,7 @@ fun DeviceField(
         ) {
             Text(
                 text = label,
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black
@@ -904,7 +896,7 @@ fun DeviceField(
             Text(
                 text = value,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                fontSize = 20.sp,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
             )
@@ -914,7 +906,7 @@ fun DeviceField(
                 Text(
                     text = " $unit",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
+                    fontSize = 18.sp,
 
                     style = MaterialTheme.typography.bodyMedium,
                     color = unitColor
@@ -1574,7 +1566,7 @@ fun Fields(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
@@ -1586,7 +1578,7 @@ fun Fields(
         ) {
             Text(
                 text = value,
-                fontSize = 15.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
@@ -1596,7 +1588,7 @@ fun Fields(
             if (unit != null) {
                 Text(
                     text = " $unit",
-                    fontSize = 15.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium,
                     color = unitColor
@@ -1650,7 +1642,7 @@ fun DeviceFieldWithSwitch(
         ) {
             Text(
                 text = label,
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black,
@@ -1663,7 +1655,7 @@ fun DeviceFieldWithSwitch(
 
             Text(
                 text = value,
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 color = valueColor
@@ -1709,7 +1701,7 @@ fun UUIDField( uuid: String    ) {
         ) {
             Text(
                 text = "UUID",
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Black
@@ -1722,7 +1714,7 @@ fun UUIDField( uuid: String    ) {
         ) {
             Text(
                 text = uuid,
-                fontSize = 15.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyLarge,
                 color = Color.Black,

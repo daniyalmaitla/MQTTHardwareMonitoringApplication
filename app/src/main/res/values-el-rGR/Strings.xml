@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MQTTHardwareApp</string>
+    <string name="positron">Ποζίτρον</string>
+    <string name="irrigation">Διαχείριση Άρδευσης</string>
+    <string name="select">Επιλογή Συσκευής</string>
+    <string name="speedSetting">Ρύθμιση Ταχύτητας</string>
+    <string name="changeSpeed">Αλλαγή Ταχύτητας</string>
+    <string name="currentSpeed">Τρέχουσα Ταχύτητα</string>
+    <string name="remain_dis">Υπόλοιπη Απόσταση</string>
+    <string name="battery_volt">Τάση Μπαταρίας</string>
+    <string name="press">Πίεση</string>
+    <string name="automaticReports">Αυτόματες Αναφορές</string>
+    <string name="control">Προηγμένος Έλεγχος</string>
+    <string name="no_device">Καμία Συσκευή</string>
+    <string name="del_device">Διαγραφή Συσκευής</string>
+    <string name="main_valve">Κατάσταση Κύριας Βαλβίδας</string>
+    <string name="On">ΕΝΕΡΓΟ</string>
+    <string name="Ok">ΕΝΤΑΞΕΙ</string>
+    <string name="Off">ΑΝΕΝΕΡΓΟ</string>
+    <string name="Open">ΑΝΟΙΧΤΗ</string>
+    <string name="Closed">ΚΛΕΙΣΤΗ</string>
+    <string name="pre_limit">Άνω Όριο Πίεσης</string>
+    <string name="enter_speed">Εισαγωγή Ταχύτητας</string>
+    <string name="Cancel">Ακύρωση</string>
+    <string name="reset_dis">Επαναφορά Υπόλοιπης Απόστασης</string>
+    <string name="q1">Είστε βέβαιοι ότι θέλετε να επαναφέρετε την υπόλοιπη απόσταση;</string>
+    <string name="q2">Μετά την επαναφορά, θα μπορείτε να αλλάξετε τις τιμές μόνο από τη συσκευή υλικού.</string>
+    <string name="enabled_dev">Ενεργοποιημένες Συσκευές</string>
+    <string name="remaining_distance">Υπόλοιπη Απόσταση</string>
+    <string name="battery">Μπαταρία</string>
+    <string name="speed">Ταχύτητα</string>
+    <string name="pressure">Πίεση</string>
+    <string name="Finish">Τέλος</string>
+    <string name="q3">Είστε σίγουροι ότι θέλετε να διαγράψετε αυτήν τη συσκευή;</string>
+    <string name="check_version">Έλεγχος για νέα έκδοση</string>
+    <string name="save_exit">Αποθήκευση &amp; Έξοδος</string>
+    <string name="exit">Έξοδος</string>
+    <string name="Device_mgt">Πίνακας Διαχείρισης Συσκευών</string>
+    <string name="mobi_no">Αριθμός Κινητού</string>
+    <string name="com_interval">Διάστημα Επικοινωνίας</string>
+    <string name="enabled">ΕΝ</string>
+    <string name="Device_name">Όνομα Συσκευής</string>
+    <string name="UUID">UUID</string>
+    <string name="mob_label">Εισάγετε τον αριθμό κινητού σας</string>
+    <string name="placeholder">Πρέπει να έχει τουλάχιστον 10 ψηφία</string>
+    <string name="ClientID">Απαιτείται Client ID</string>
+    <string name="clientDialog">Πρέπει να εισαγάγετε και να αποθηκεύσετε ένα Client ID πριν φύγετε από αυτήν την οθόνη</string>
+    <string name="duplicateDevice">Διπλή Συσκευή</string>
+    <string name="q4">Η συσκευή υπάρχει ήδη.</string>
+    <string name="no_internet">Χωρίς σύνδεση στο Διαδίκτυο</string>
+    <string name="internet_dialog">Είστε εκτός σύνδεσης. Δεν είναι δυνατή η λήψη δεδομένων μέχρι να υπάρχει διαθέσιμο δίκτυο.</string>
+
+
+</resources>
