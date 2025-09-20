@@ -1,5 +1,6 @@
 package com.app.mqtthardwareapp.ViewModels
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +10,7 @@ import com.app.mqtthardwareapp.Events.DeviceEvent
 import com.app.mqtthardwareapp.MqttManager
 import com.app.mqtthardwareapp.Screens.DeviceWithData
 import com.app.mqtthardwareapp.States.DeviceState
+import com.app.mqtthardwareapp.Utils.PrefsHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -110,8 +112,9 @@ class DeviceViewModel(private val repo: DeviceRepository,
     private val _selectedDevice = MutableStateFlow<Device?>(null)
     val selectedDevice: StateFlow<Device?> = _selectedDevice
 
-    fun selectDevice(device: Device) {
+    fun selectDevice(device: Device, context: Context) {
         _selectedDevice.value = device
+        PrefsHelper.saveSelectedDevice(context, device.deviceId)
     }
     fun deleteSelectedDevice() {
         viewModelScope.launch {
@@ -145,7 +148,7 @@ class DeviceViewModel(private val repo: DeviceRepository,
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    fun updateDeviceData(deviceId: String, newData: DeviceData) {
+    /*fun updateDeviceData(deviceId: String, newData: DeviceData) {
         _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
             val oldData = this[deviceId]
             if (oldData != null) {
@@ -168,11 +171,65 @@ class DeviceViewModel(private val repo: DeviceRepository,
                 put(deviceId, newData)
             }
         }
+    }*/
+    fun updateDeviceData(context: Context, deviceId: String, newData: DeviceData) {
+        _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
+            val oldData = this[deviceId]
+            val merged = if (oldData != null) {
+                oldData.copy(
+                    speedSetting = newData.speedSetting ?: oldData.speedSetting,
+                    currentSpeed = newData.currentSpeed ?: oldData.currentSpeed,
+                    remainingDistance = newData.remainingDistance ?: oldData.remainingDistance,
+                    remainingTime = newData.remainingTime ?: oldData.remainingTime,
+                    batteryVoltage = newData.batteryVoltage ?: oldData.batteryVoltage,
+                    pressure = newData.pressure ?: oldData.pressure,
+                    pressureLimit = newData.pressureLimit ?: oldData.pressureLimit,
+                    automaticReportsEnable = newData.automaticReportsEnable ?: oldData.automaticReportsEnable,
+                    mainValveStatus = newData.mainValveStatus ?: oldData.mainValveStatus,
+                    finalFinishNotification = newData.finalFinishNotification ?: oldData.finalFinishNotification,
+                    lowPressureAlarm = newData.lowPressureAlarm ?: oldData.lowPressureAlarm
+                )
+            } else newData
+
+            put(deviceId, merged)
+
+            // persist snapshot
+            PrefsHelper.saveDeviceData(context, deviceId, merged)
+        }
     }
 
-    fun setIntervalForAll(interval: Long) {
+
+    fun setIntervalForAll(intervalSec: Long) {
         viewModelScope.launch {
-            repo.setIntervalForAll(interval)
+            val updated = state.value.devices.map { it.copy(interval = intervalSec * 1000) } // store ms
+            updated.forEach { dev -> repo.addDevice(dev) } // or repo.updateDevice(dev)
+            _state.value = _state.value.copy(devices = updated)
+        }
+    }
+    fun restoreSelectedDevice(context: Context, devices: List<Device>) {
+        val savedId = PrefsHelper.getSelectedDevice(context)
+        if (!savedId.isNullOrEmpty()) {
+            devices.firstOrNull { it.deviceId == savedId }?.let { dev ->
+                _selectedDevice.value = dev
+
+
+                PrefsHelper.getAllSavedDeviceData(context)[dev.deviceId]?.let { cached ->
+                    _deviceDataMap.value = _deviceDataMap.value.toMutableMap().apply {
+                        put(dev.deviceId, cached)
+                    }
+                }
+            }
+        }
+    }
+    private val _globalInterval = MutableStateFlow<Long>(50_000L) // default
+    val globalInterval: StateFlow<Long> = _globalInterval
+
+    init {
+        viewModelScope.launch {
+            val saved = repo.getGlobalInterval()
+            if (saved != null) {
+                _globalInterval.value = saved
+            }
         }
     }
 

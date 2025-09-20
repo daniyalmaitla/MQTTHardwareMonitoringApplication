@@ -12,6 +12,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -28,6 +34,7 @@ import com.app.mqtthardwareapp.Utils.PrefsHelper
 import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
+import java.util.Locale
 
 
 /*class MainActivity : ComponentActivity() {
@@ -100,6 +107,9 @@ import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
 class MainActivity : ComponentActivity() {
 
     private lateinit var deviceViewModel: DeviceViewModel
+    companion object {
+        val LocalAppLocale = compositionLocalOf { Locale("en") }
+    }
 
     // receiver for MQTT broadcast
     private val mqttReceiver = object : BroadcastReceiver() {
@@ -117,7 +127,10 @@ class MainActivity : ComponentActivity() {
             val parsed = parsePayload(raw)
             Log.d("MQTT_UI", "Parsed data for $id → $parsed")
 
-            deviceViewModel.updateDeviceData(id, parsed)
+            /*deviceViewModel.updateDeviceData(id, parsed)*/
+            deviceViewModel.updateDeviceData(applicationContext, id, parsed)
+
+            PrefsHelper.saveDeviceData(applicationContext, id, parsed)
         }
     }
 
@@ -137,15 +150,13 @@ class MainActivity : ComponentActivity() {
         val deviceId = intent.getStringExtra("deviceId")
         if (!deviceId.isNullOrEmpty()) {
             Log.d("MQTT", "🔔 Notification tapped for device $deviceId")
-            // store it temporarily → use later inside Compose navigation
-            // e.g., pass to a variable, ViewModel, or SavedStateHandle
+
         }
 
 
-        // spin up service
-        /*val serviceIntent = Intent(this, MqttBackgroundService::class.java)*/
+
         MqttBackgroundService.startIfClientIdSet(this)
-       /* startForegroundService(serviceIntent)*/
+
         Log.d("MQTT_UI", "Started foreground service")
 
         // build repository & shared ViewModel
@@ -157,7 +168,7 @@ class MainActivity : ComponentActivity() {
             deviceViewModel = ViewModelProvider(this, DeviceViewModelFactory(repo))
                 .get(DeviceViewModel::class.java)
         } else {
-            // No ClientId → don’t create mqttManager yet
+
             Log.w("MQTT_UI", "⚠ No ClientId set yet, skipping mqttManager setup")
         }
 
@@ -166,12 +177,24 @@ class MainActivity : ComponentActivity() {
             .get(DeviceViewModel::class.java)
 
         setContent {
-            MqttHardwareAppTheme {
-                val navController = rememberNavController()
-                val startDeviceId = intent.getStringExtra("deviceId")
-                AppNavigation(navController, repo, startDeviceId)
+            var locale by remember { mutableStateOf(Locale("en")) }
+
+            CompositionLocalProvider(LocalAppLocale provides locale) {
+                MqttHardwareAppTheme {
+                    val navController = rememberNavController()
+                    val startDeviceId = intent.getStringExtra("deviceId")
+                    AppNavigation(
+                        navController,
+                        repo,
+                        startDeviceId,
+                        onChangeLanguage = { langCode ->
+                            locale = Locale(langCode)
+                        }
+                    )
+                }
             }
         }
+
 
         Log.d("MQTT_UI", "MainActivity created, waiting for broadcasts")
     }
@@ -192,7 +215,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?) {
+fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?, onChangeLanguage: (String) -> Unit) {
     val viewModel: DeviceViewModel = viewModel(
         factory = DeviceViewModelFactory(repo) // custom factory if needed
     )
@@ -207,6 +230,7 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startD
                 navController = navController,
                 repo = repo,
                 viewModel = viewModel,
+                onChangeLanguage = onChangeLanguage
 
             ) }
     }

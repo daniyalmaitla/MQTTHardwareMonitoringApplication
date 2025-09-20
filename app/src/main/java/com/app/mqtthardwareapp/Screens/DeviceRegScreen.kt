@@ -1,5 +1,10 @@
 package com.app.mqtthardwareapp.Screens
 
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.res.Configuration
+import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.modifier.modifierLocalConsumer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
@@ -73,6 +79,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.app.mqtthardwareapp.Data.Device
 import com.app.mqtthardwareapp.Events.DeviceEvent
+import com.app.mqtthardwareapp.MainActivity
 import com.app.mqtthardwareapp.MqttBackgroundService
 import com.app.mqtthardwareapp.R
 import com.app.mqtthardwareapp.Theme.MqttHardwareAppTheme
@@ -80,12 +87,25 @@ import com.app.mqtthardwareapp.Utils.PrefsHelper
 import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import org.intellij.lang.annotations.Language
+@SuppressLint("ComposeLocalContext")
+@Composable
+fun getStringRes(@StringRes resId: Int): String {
+    val context = LocalContext.current
+    val locale = MainActivity.LocalAppLocale.current
+    val currentConfig = LocalConfiguration.current
 
+    val config = Configuration(currentConfig)
+    config.setLocale(locale)
+
+    val localizedContext = context.createConfigurationContext(config)
+    return localizedContext.resources.getString(resId)
+}
 @Composable
 fun DeviceRegScreen(
     navController: NavController,
     repo: DeviceRepository,
-    viewModel: DeviceViewModel
+    viewModel: DeviceViewModel,
+    onChangeLanguage: (String) -> Unit
 ) {
     val context = LocalContext.current
     var clientId by rememberSaveable {
@@ -97,9 +117,10 @@ fun DeviceRegScreen(
     }
 
     val state by viewModel.state.collectAsState()
-    var communicationInterval by rememberSaveable(state.devices) {
-        mutableStateOf(state.devices.firstOrNull()?.interval?.toString() ?: "50")
-    }
+    val globalInterval by viewModel.globalInterval.collectAsState()
+
+
+    var communicationInterval = (globalInterval / 1000).toString()
     var showDuplicateDialog by remember { mutableStateOf(false) }
     var showClientIdDialog by remember { mutableStateOf(false) }
     var duplicateDeviceId by remember { mutableStateOf("") }
@@ -118,7 +139,7 @@ fun DeviceRegScreen(
                     id = 0,
                     name = "",
                     deviceId = "",
-                    interval = 1000L,
+                    interval = 50_000L,
                     enabled = false,
                     subscribedReadTopic = "",
                     subscribedWriteTopic = ""
@@ -132,8 +153,9 @@ fun DeviceRegScreen(
         Column(Modifier.fillMaxSize().padding(paddingValues)) {
 
             LazyColumn(Modifier.fillMaxSize()) {
-
-
+                item { Spacer(modifier = Modifier.height(10.dp)) }
+                item { LanguageButtons(onChangeLanguage = onChangeLanguage) }
+                item { Spacer(modifier = Modifier.height(2.dp)) }
                 item {
                     TopButtons(
                         onSaveExit = {
@@ -162,13 +184,18 @@ fun DeviceRegScreen(
                                 }
                                 navController.popBackStack()
                             }
-                            communicationInterval.toLongOrNull()?.let { intervalLong ->
-                                viewModel.setIntervalForAll(intervalLong)
+                            communicationInterval.toLongOrNull()?.let { intervalSec ->
+                                viewModel.setIntervalForAll(intervalSec)
                             }
 
 
                         },
-                        onExit = { navController.popBackStack() }
+                        onExit = { navController.popBackStack() },
+                        onCheckVersion = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://drive.google.com/file/d/1ZKe9aRmPgI8L-ucKhQu5BDgmPq443jXC/view?usp=sharing"))
+                            context.startActivity(intent)
+                        }
+
                     )
                 }
 
@@ -221,8 +248,8 @@ fun DeviceRegScreen(
                             Text("OK")
                         }
                     },
-                    title = { Text("Client ID Required") },
-                    text = { Text("You must enter and save a Client ID before leaving this screen.") }
+                    title = { Text(getStringRes(R.string.ClientID)) },
+                    text = { Text(getStringRes(R.string.clientDialog)) }
                 )
             }
 
@@ -231,8 +258,8 @@ fun DeviceRegScreen(
                 AlertDialog(
                     onDismissRequest = { showDuplicateDialog = false },
                     confirmButton = { TextButton({ showDuplicateDialog = false }) { Text("OK") } },
-                    title = { Text("Duplicate Device") },
-                    text = { Text("Device $duplicateDeviceId already exists.") }
+                    title = { Text(getStringRes(R.string.duplicateDevice)) },
+                    text = { Text("$duplicateDeviceId"+" "+getStringRes(R.string.q4)) }
                 )
             }
         }
@@ -263,13 +290,13 @@ fun RegTopbar(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "POSITRON",
+                text = getStringRes(R.string.positron),
                 fontSize = 35.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
-                text = "IRRIGATION  MASTER",
+                text = getStringRes(R.string.irrigation),
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Blue,
@@ -284,7 +311,8 @@ fun RegTopbar(
 @Composable
 fun TopButtons(
     onSaveExit : ()->Unit,
-    onExit : ()-> Unit
+    onExit : ()-> Unit,
+    onCheckVersion : ()->Unit
 ) {
     Column(
         modifier = Modifier
@@ -305,7 +333,7 @@ fun TopButtons(
                 .padding(5.dp)
 
             Button(
-                onClick = { },
+                onClick = onCheckVersion,
                 shape = RoundedCornerShape(4.dp),
                 modifier = buttonModifier,
                 colors = ButtonDefaults.buttonColors(
@@ -314,9 +342,9 @@ fun TopButtons(
                 )
             ) {
                 Text(
-                    "Check for new version",
+                    getStringRes(R.string.check_version),
                     textAlign = TextAlign.Center,
-                    fontSize = 15.sp,
+                    fontSize = 12.sp,
                     softWrap = true,
                     lineHeight = 14.sp
                 )
@@ -332,9 +360,9 @@ fun TopButtons(
                 )
             ) {
                 Text(
-                    "Save & Exit",
+                    getStringRes(R.string.save_exit),
                     textAlign = TextAlign.Center,
-                    fontSize = 15.sp,
+                    fontSize = 12.sp,
                     softWrap = true
                 )
             }
@@ -349,9 +377,9 @@ fun TopButtons(
                 )
             ) {
                 Text(
-                    "Exit",
+                    getStringRes(R.string.exit),
                     textAlign = TextAlign.Center,
-                    fontSize = 15.sp,
+                    fontSize = 12.sp,
                     softWrap = true
                 )
             }
@@ -362,7 +390,7 @@ fun TopButtons(
         Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            text = "DEVICE MANAGEMENT PANEL",
+            text = getStringRes(R.string.Device_mgt),
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             modifier = Modifier.background(color = MaterialTheme.colorScheme.background)
@@ -388,7 +416,7 @@ fun DeviceManagementScreen() {
                 .padding(6.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Text("Device Management Panel", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(getStringRes(R.string.Device_mgt), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -402,9 +430,9 @@ fun DeviceManagementScreen() {
                 .padding(6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("EN", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("DEVICE NAME", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("UID", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(getStringRes(R.string.enabled), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(getStringRes(R.string.Device_name), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(getStringRes(R.string.UUID), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
 
 
@@ -427,7 +455,7 @@ fun BottomFields(
                 .fillMaxWidth()
                 .background(color = MaterialTheme.colorScheme.primary)
         ) {
-            Text("COMMUNICATION INTERVAL ", fontWeight = FontWeight.Bold)
+            Text(getStringRes(R.string.com_interval), fontWeight = FontWeight.Bold)
             OutlinedTextField(
                 value = intervalText,
                 onValueChange = { newText ->
@@ -493,7 +521,7 @@ fun DeviceRow(
                 onValueChange = { onDeviceChange(device.copy(name = it)) },
                 placeholder = {
                     Text(
-                        "Device Name",
+                        getStringRes(R.string.Device_name),
                     )
                 },
                 modifier = Modifier
@@ -522,7 +550,7 @@ fun DeviceRow(
             OutlinedTextField(
                 value = device.deviceId,
                 onValueChange = { onDeviceChange(device.copy(deviceId = it)) },
-                placeholder = { Text("UID") },
+                placeholder = { Text(getStringRes(R.string.UUID)) },
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 2.dp),
@@ -559,8 +587,8 @@ fun ClientIdField(
                 onClientIdChange(newValue)
             }
         },
-        label = { Text("Mobile Number *") },
-        placeholder = { Text("Enter your Mobile Number") },
+        label = { Text(getStringRes(R.string.mobi_no)) },
+        placeholder = { Text(getStringRes(R.string.mob_label)) },
         singleLine = true,
         modifier = Modifier
             .fillMaxWidth()
@@ -572,7 +600,7 @@ fun ClientIdField(
         isError = clientId.isNotEmpty() && clientId.length < 10,
         supportingText = {
             if (clientId.isNotEmpty() && clientId.length < 10) {
-                Text("Must be at least 10 digits")
+                Text(getStringRes(R.string.placeholder))
             }
         },
         colors = OutlinedTextFieldDefaults.colors(
@@ -586,15 +614,15 @@ fun ClientIdField(
     )
 }
 @Composable
-fun LanguageButtons() {
+fun LanguageButtons(onChangeLanguage: (String) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Greek flag button
+        // Greek flag
         Button(
-            onClick = { /* TODO: change language to Greek */ },
+            onClick = { onChangeLanguage("el") }, // Greek
             shape = RoundedCornerShape(4.dp),
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.size(width = 30.dp, height = 20.dp)
@@ -609,9 +637,9 @@ fun LanguageButtons() {
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // UK flag button
+        // English flag
         Button(
-            onClick = { /* TODO: change language to English */ },
+            onClick = { onChangeLanguage("en") }, // English
             shape = RoundedCornerShape(4.dp),
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.size(width = 30.dp, height = 20.dp)
@@ -625,6 +653,7 @@ fun LanguageButtons() {
         }
     }
 }
+
 
 
 

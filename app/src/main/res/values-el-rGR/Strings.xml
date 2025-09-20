@@ -23,7 +23,13 @@
     <string name="pre_limit">Άνω Όριο Πίεσης</string>
     <string name="enter_speed">Εισαγωγή Ταχύτητας</string>
     <string name="Cancel">Ακύρωση</string>
+    <string name="choose_dev">Επιλέξτε συσκευή</string>
+    <string name="new_value">Εισαγάγετε νέα τιμή</string>
+    <string name="invalid_pressure">Μη έγκυρη πίεση</string>
+    <string name="pressure_range">Η πίεση πρέπει να είναι μεταξύ 1 και 15.</string>
+    <string name="advance_control">Προηγμένος έλεγχος</string>
     <string name="reset_dis">Επαναφορά Υπόλοιπης Απόστασης</string>
+    <string name="remain_time">Υπολειπόμενος χρόνος</string>
     <string name="q1">Είστε βέβαιοι ότι θέλετε να επαναφέρετε την υπόλοιπη απόσταση;</string>
     <string name="q2">Μετά την επαναφορά, θα μπορείτε να αλλάξετε τις τιμές μόνο από τη συσκευή υλικού.</string>
     <string name="enabled_dev">Ενεργοποιημένες Συσκευές</string>

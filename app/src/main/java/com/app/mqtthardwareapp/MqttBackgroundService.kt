@@ -268,7 +268,7 @@ class MqttBackgroundService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("MQTT Service Running")
-            .setContentText("Fetching data every 30 seconds...")
+            .setContentText("Fetching data...")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .build()
 

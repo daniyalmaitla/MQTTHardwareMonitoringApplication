@@ -113,6 +113,7 @@ fun HomeScreen(
     startDeviceId: String? = null
 
 ){
+    val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     var showDuplicateDialog by remember { mutableStateOf(false) }
     var duplicateDeviceId by remember { mutableStateOf("") }
@@ -124,14 +125,18 @@ fun HomeScreen(
     LaunchedEffect(startDeviceId, enabledDevices) {
         if (!startDeviceId.isNullOrEmpty()) {
             enabledDevices.firstOrNull { it.deviceId == startDeviceId }?.let {
-                viewModel.selectDevice(it)
+                viewModel.selectDevice(it, context)
             }
+        } else {
+
+            viewModel.restoreSelectedDevice(context, enabledDevices)
         }
     }
 
+
     val currentData = selected?.let { deviceDataMap[it.deviceId] }
 
-    val context = LocalContext.current
+
     val isConnected by rememberConnectivityState()
     var showNoInternetDialog by remember { mutableStateOf(!isConnected) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -175,15 +180,14 @@ fun HomeScreen(
         )){
 
 
-             LanguageButtons()
-            Spacer(modifier = Modifier.height(10.dp))
+
             DeviceSelectorField(
-                placeholder = "Select Device",
+                placeholder = getStringRes(R.string.select),
                 enabledDevices = enabledDeviceView,
                 selectedDevice = selected?.name ?: "Select Device",
                 onDeviceSelected = { deviceId ->
                     enabledDeviceView.firstOrNull { it.device.deviceId == deviceId }?.let {
-                        viewModel.selectDevice(it.device)
+                        viewModel.selectDevice(it.device, context)
                     }
                 }
             )
@@ -206,7 +210,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                icon = painterResource(R.drawable.download_speed),
-                label = "CURRENT SPEED",
+                label = getStringRes(R.string.currentSpeed),
                 value = String.format("%.2f", currentData?.currentSpeed ?: 0.00),
                 unit = "m/h",
                 iconRight = painterResource(R.drawable.download_speed)
@@ -228,7 +232,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                 icon = painterResource(R.drawable.download_speed),
-                label = "REMAINING TIME",
+                label = getStringRes(R.string.remain_time),
                 value = String.format("%.2f", currentData?.remainingTime ?: 0.00),
                 unit = "h",
                 iconRight = painterResource(R.drawable.download_speed)
@@ -236,7 +240,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             Fields(
                 icon = painterResource(R.drawable.battery_3713201),
-                label = "BATTERY VOLTAGE",
+                label = getStringRes(R.string.battery_volt) ,
                 value = String.format("%.1f", currentData?.batteryVoltage ?: 0.0),
                 unit = "V",
                 iconRight = painterResource(R.drawable.download_speed)
@@ -295,7 +299,7 @@ fun HomeScreen(
 
 
             Spacer(modifier = Modifier.height(10.dp))
-            UUIDField(uuid = device?.deviceId ?: "No Device")
+            UUIDField(uuid = device?.deviceId ?: getStringRes(R.string.no_device),)
             Spacer(modifier = Modifier.height(10.dp))
             bottomBar(
                 onDelete = { showDeleteDialog = true }
@@ -306,18 +310,18 @@ fun HomeScreen(
                     onDismissRequest = { showDuplicateDialog = false },
                     confirmButton = {
                         TextButton(onClick = { showDuplicateDialog = false }) {
-                            Text("OK")
+                            Text(getStringRes(R.string.Ok),)
                         }
                     },
-                    title = { Text("Duplicate Device") },
-                    text = { Text("Device with ID $duplicateDeviceId already exists.") }
+                    title = { Text(getStringRes(R.string.duplicateDevice)) },
+                    text = { Text(" $duplicateDeviceId"+" "+getStringRes(R.string.q4),) }
                 )
             }
             if (showNoInternetDialog) {
                 AlertDialog(
                     onDismissRequest = { showNoInternetDialog = false },  // allow closing
-                    title = { Text("No Internet") },
-                    text = { Text("You are offline. Data cannot be fetched until a network is available.") },
+                    title = { Text(getStringRes(R.string.no_internet)) },
+                    text = { Text(getStringRes(R.string.internet_dialog)) },
                     confirmButton = {
                         TextButton(onClick = { showNoInternetDialog = false }) {
                             Text("OK")
@@ -328,8 +332,8 @@ fun HomeScreen(
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Delete Device") },
-                    text = { Text("Are you sure you want to delete this device?") },
+                    title = { Text(getStringRes(R.string.del_device)) },
+                    text = { Text(getStringRes(R.string.q3)) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -337,14 +341,14 @@ fun HomeScreen(
                                 showDeleteDialog = false
                             }
                         ) {
-                            Text("OK")
+                            Text((getStringRes(R.string.Ok)))
                         }
                     },
                     dismissButton = {
                         TextButton(
                             onClick = { showDeleteDialog = false }
                         ) {
-                            Text("Cancel")
+                            Text(getStringRes(R.string.Cancel))
                         }
                     }
                 )
@@ -388,17 +392,17 @@ fun HomeTopbar(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "POSITRON",
+                text = getStringRes(R.string.positron),
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Text(
-                text = "IRRIGATION  MASTER",
+                text = getStringRes(R.string.irrigation),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Blue,
-                letterSpacing = 2.sp
+                letterSpacing = 1.sp
             )
         }
 
@@ -596,7 +600,7 @@ fun DeviceSelectorField(
         if (dialogOpen) {
             AlertDialog(
                 onDismissRequest = { dialogOpen = false },
-                title = { Text(text = "Choose Device") },
+                title = { Text(text = getStringRes(R.string.choose_dev)) },
                 text = {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         // show list of names as radio items
@@ -629,11 +633,11 @@ fun DeviceSelectorField(
                         }
                         dialogOpen = false
                     }) {
-                        Text("OK")
+                        Text(getStringRes(R.string.Ok))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { dialogOpen = false }) { Text("Cancel") }
+                    TextButton(onClick = { dialogOpen = false }) { Text(getStringRes(R.string.Cancel)) }
                 }
             )
         }
@@ -661,7 +665,7 @@ fun DeviceSelectorField(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Enabled Devices", style = MaterialTheme.typography.titleMedium)
+                            Text(getStringRes(R.string.enabled_dev), style = MaterialTheme.typography.titleMedium)
                             IconButton(onClick = { surfaceExpanded = false }) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -704,57 +708,7 @@ fun DeviceSelectorField(
     }
 }
 
-/** Example DeviceBox — show a compact card with device identity + key fields **/
-/*@Composable
-fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth().border(3.dp, color = Color.Black),
-        shape = RectangleShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier
-            .fillMaxWidth().background(color = MaterialTheme.colorScheme.surfaceBright)
-            .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally 
-        ) {
-            // Device name centered
-            Text(
-                text = deviceWithData.device.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.Black
-            )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val d = deviceWithData.data
-            // show a few values; use safe fallbacks
-            Text(text = "Speed: ${d?.speedSetting ?: "-"}")
-            Text(text = "Speed: ${d?.currentSpeed ?: "-"}")
-            Text(text = "Rem Dist: ${d?.remainingDistance ?: "-"}")
-            Text(text = "Pressure: ${d?.pressure ?: "-"}")
-            Text(text = "Battery: ${d?.batteryVoltage ?: "-"}", maxLines = 1)
-            Text(
-                text = "Final Finish: " + when (d?.finalFinishNotification) {
-                    0 -> "Off"
-                    1 -> "On"
-                    else -> "-"
-                }
-            )
-
-            Text(
-                text = "Low Pressure: " + when (d?.lowPressureAlarm) {
-                    0 -> "Off"
-                    1 -> "On"
-                    else -> "-"
-                }
-            )
-        }
-    }
-}*/
 @Composable
 fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
     val d = deviceWithData.data
@@ -800,13 +754,13 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(8.dp).weight(1f)
                 ) {
-                    Text("Speed:",color = Color.Black, style = valueTextStyle)
-                    Text("Speed:",color = Color.Black, style = valueTextStyle)
-                    Text("Re Dis:",color = Color.Black, style = valueTextStyle)
-                    Text("Press:",color = Color.Black, style = valueTextStyle)
-                    Text("Battery:",color = Color.Black, style = valueTextStyle)
-                    Text("Finish:",color = Color.Black, style = valueTextStyle)
-                    Text("Press:",color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.speed),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.speed),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.remaining_distance),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.pressure),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.battery),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.Finish),color = Color.Black, style = valueTextStyle)
+                    Text(getStringRes(R.string.pressure),color = Color.Black, style = valueTextStyle)
                 }
 
                 Column(
@@ -822,15 +776,15 @@ fun DeviceBox(deviceWithData: DeviceWithData, onClick: () -> Unit) {
                     Text("${d?.batteryVoltage ?: "-"}",color = Color.Blue, style = valueTextStyle)
                     Text(
                         when (d?.finalFinishNotification) {
-                            0 -> "Off"
-                            1 -> "On"
+                            0 -> getStringRes(R.string.Off)
+                            1 -> getStringRes(R.string.On)
                             else -> "-"
                         },color = Color.Blue, style = valueTextStyle
                     )
                     Text(
                         when (d?.lowPressureAlarm) {
-                            0 -> "Off"
-                            1 -> "On"
+                            0 -> getStringRes(R.string.Off)
+                            1 -> getStringRes(R.string.On)
                             else -> "-"
                         },color = Color.Blue, style = valueTextStyle
                     )
@@ -1029,7 +983,7 @@ fun SpeedSettingRow(
         // Current Speed Row
         DeviceField(
             icon = painterResource(R.drawable.optimization),
-            label = "SPEED SETTING",
+            label = getStringRes(R.string.speedSetting),
             value = speed,
             unit = "m/h",
             iconRight = painterResource(R.drawable.down_arrow),
@@ -1059,7 +1013,7 @@ fun SpeedSettingRow(
 
                 // Label
                 Text(
-                    text = "CHANGE SPEED",
+                    text = getStringRes(R.string.changeSpeed),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     modifier = Modifier.width(80.dp),
@@ -1077,7 +1031,7 @@ fun SpeedSettingRow(
                     },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    placeholder = { Text("ENTER SPEED") },
+                    placeholder = { Text(getStringRes(R.string.enter_speed)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
@@ -1112,7 +1066,7 @@ fun SpeedSettingRow(
                     ),
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text("OK", color = Color.Black, fontSize = 12.sp)
+                    Text(getStringRes(R.string.Ok), color = Color.Black, fontSize = 12.sp)
                 }
             }
         }
@@ -1123,7 +1077,7 @@ fun SpeedSettingRow(
                 onDismissRequest = { showErrorDialog = false },
                 confirmButton = {
                     TextButton(onClick = { showErrorDialog = false }) {
-                        Text("OK")
+                        Text(getStringRes(R.string.Ok))
                     }
                 },
                 title = { Text("Invalid Speed") },
@@ -1268,7 +1222,7 @@ fun PressureSettingRow(
         // Current Pressure Row (collapsible trigger)
         DeviceField(
             icon = painterResource(R.drawable.pressure_meter),
-            label = "PRESSURE",
+            label = getStringRes(R.string.press),
             value = value,
             unit = "bars",
             iconRight = painterResource(R.drawable.down_arrow),
@@ -1299,7 +1253,7 @@ fun PressureSettingRow(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "PRESSURE UPPER LIMIT",
+                        text = getStringRes(R.string.pre_limit),
                         fontSize = 15.sp,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Black
@@ -1336,7 +1290,7 @@ fun PressureSettingRow(
                         singleLine = true,
                         label = {
                             Text(
-                                "Enter new value",
+                                getStringRes(R.string.new_value),
                                 color = Color.White,
                                 modifier = Modifier.background(color = Color.Unspecified)
                             )
@@ -1390,8 +1344,8 @@ fun PressureSettingRow(
                         Text("OK")
                     }
                 },
-                title = { Text("Invalid Pressure") },
-                text = { Text("Pressure must be between 1 and 15.") }
+                title = { Text(getStringRes(R.string.invalid_pressure)) },
+                text = { Text(getStringRes(R.string.pressure_range)) }
             )
         }
     }
@@ -1409,13 +1363,13 @@ fun AutomaticReports(
         switchState = (value == 1)
     }
 
-    val displayText = if (switchState) "ON" else "OFF"
+    val displayText = if (switchState) getStringRes(R.string.On) else getStringRes(R.string.Off)
 
     Column {
         DeviceFieldWithSwitch(
             modifier = Modifier.background(MaterialTheme.colorScheme.primary),
             icon = painterResource(id = R.drawable.notification),
-            label = "AUTOMATIC REPORTS",
+            label = getStringRes(R.string.automaticReports),
             value = displayText,
             switchState = switchState,
             onSwitchChange = { newState ->
@@ -1437,12 +1391,12 @@ fun AdvanceControlRow(
     var showField by remember { mutableStateOf(false) }
 
     val switchState = value == 1
-    val displayText = if (switchState) "OPEN" else "CLOSED"
+    val displayText = if (switchState) getStringRes(R.string.Open) else getStringRes(R.string.Closed)
 
     Column {
         DeviceField(
             icon = painterResource(R.drawable.advance_control),
-            label = "ADVANCE CONTROL",
+            label = getStringRes(R.string.advance_control),
             value = "",
             unit = "",
             iconRight = painterResource(R.drawable.down_arrow),
@@ -1460,7 +1414,7 @@ fun AdvanceControlRow(
             ) {
                 DeviceFieldWithSwitch(
                     icon = painterResource(R.drawable.pneumatic),
-                    label = "MAIN VALVE CONTROL STATUS",
+                    label = getStringRes(R.string.main_valve),
                     value = displayText,
                     switchState = switchState,
                     onSwitchChange = { newState ->
@@ -1486,7 +1440,7 @@ fun DistanceRow(distance:String,
         // Current Speed Row
         DeviceField(
             icon = painterResource(R.drawable.travel),
-            label = "REMAINING DISTANCE",
+            label = getStringRes(R.string.remain_dis),
             value = distance,
             unit = "m",
             iconRight = painterResource(R.drawable.arrows_13170375),
@@ -1498,11 +1452,11 @@ fun DistanceRow(distance:String,
         if (showDialog) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
-                title = { Text("Reset Remaining Distance") },
+                title = { Text(getStringRes(R.string.reset_dis)) },
                 text = {
                     Text(
-                        "Are you sure you want to reset the remaining distance?\n" +
-                                "After resetting, you will only be able to change the values from the hardware device."
+                        getStringRes(R.string.q1)+ "\n" +
+                                getStringRes(R.string.q2)
                     )
                 },
                 confirmButton = {
@@ -1512,14 +1466,14 @@ fun DistanceRow(distance:String,
                             showDialog = false
                         }
                     ) {
-                        Text("OK")
+                        Text(getStringRes(R.string.Ok))
                     }
                 },
                 dismissButton = {
                     TextButton(
                         onClick = { showDialog = false }
                     ) {
-                        Text("Cancel")
+                        Text(getStringRes(R.string.Cancel))
                     }
                 }
             )
@@ -1756,7 +1710,7 @@ fun bottomBar(onDelete: ()->Unit) {
                 tint = Color.Unspecified
             )
             Text(
-                text = "Delete Device",
+                text = getStringRes(R.string.del_device),
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 4.dp) // small spacing instead of Spacer(15dp)
             )

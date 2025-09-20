@@ -37,6 +37,10 @@
             </intent-filter>
         </receiver>
         <receiver android:name="AlarmStopReceiver" />
+        <receiver
+            android:name=".AlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

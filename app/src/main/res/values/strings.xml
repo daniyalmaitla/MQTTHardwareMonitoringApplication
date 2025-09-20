@@ -1,18 +1,24 @@
 <resources>
     <string name="app_name">MQTTHardwareApp</string>
-    <string name="positron">Positron</string>
-    <string name="irrigation">Irrigation Master</string>
+    <string name="positron">POSITRON</string>
+    <string name="irrigation">IRRIGATION MASTER</string>
     <string name="select">Select Device</string>
     <string name="speedSetting">Speed Setting</string>
     <string name="changeSpeed">Change Speed</string>
     <string name="currentSpeed">Current Speed</string>
     <string name="remain_dis">Remaining Distance</string>
+    <string name="remain_time">Remaining Time</string>
     <string name="battery_volt">Battery Voltage</string>
     <string name="press">Pressure</string>
     <string name="automaticReports">Automatic Reports</string>
     <string name="control">Advance Control</string>
     <string name="no_device">No Device</string>
     <string name="del_device">Delete Device</string>
+    <string name="choose_dev">Choose Device</string>
+    <string name="new_value">Enter New Value</string>
+    <string name="invalid_pressure">Invalid Pressure</string>
+    <string name="pressure_range">Pressure must be between 1 and 15.</string>
+    <string name="advance_control">Advance Control</string>
     <string name="main_valve">Main Valve Control Status</string>
     <string name="On">ON</string>
     <string name="Ok">OK</string>
