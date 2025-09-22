@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,6 +37,7 @@ import com.app.mqtthardwareapp.ViewModels.DeviceRepository
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
 import java.util.Locale
+import android.provider.Settings
 
 
 /*class MainActivity : ComponentActivity() {
@@ -137,7 +140,7 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        MqttBackgroundService.ignoreBatteryOptimizations(this)
+        ignoreBatteryOptimizations(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -214,6 +217,20 @@ class MainActivity : ComponentActivity() {
     }
 
 }
+private fun ignoreBatteryOptimizations(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val packageName = context.packageName
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            val intent = Intent(
+                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                Uri.parse("package:$packageName")
+            )
+            context.startActivity(intent)
+        }
+    }
+}
+
 
 @Composable
 fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?, onChangeLanguage: (String) -> Unit) {

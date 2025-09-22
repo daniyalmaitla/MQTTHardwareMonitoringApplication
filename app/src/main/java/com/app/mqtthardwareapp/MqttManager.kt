@@ -1,7 +1,9 @@
 package com.app.mqtthardwareapp
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.PowerManager
 import android.util.Log
 import com.app.mqtthardwareapp.Utils.PrefsHelper
@@ -17,6 +19,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
 import javax.net.ssl.SSLContext
+import android.app.AlarmManager
+import android.os.Build
+import android.os.SystemClock
 
 import javax.net.ssl.SSLSocketFactory
 
@@ -268,7 +273,7 @@ class MqttManager(
     // ------------------- periodic read control ------------------- //
 
     /** start or restart a timer for exactly one topic */
-    fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
+    /*fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
         periodicJobs[topic]?.cancel()
         periodicJobs[topic] = scope.launch {
             while (isActive) {
@@ -277,7 +282,56 @@ class MqttManager(
             }
         }
         Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms")
+    }*/
+    /*fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
+        // Cancel any existing job for this topic
+        periodicJobs[topic]?.cancel()
+
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttApp::ReadLoop")
+
+        // Acquire for 10 minutes (safety timeout, avoids battery drain if release is missed)
+        wakeLock.acquire(10 * 60 * 1000L)
+
+        periodicJobs[topic] = scope.launch(Dispatchers.IO) {
+            try {
+                while (isActive) {
+                    publish(topic, payload)
+                    delay(intervalMs)
+                }
+            } finally {
+                // Always release WakeLock when job is cancelled
+                if (wakeLock.isHeld) {
+                    wakeLock.release()
+                }
+            }
+        }
+
+        Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms (WakeLock acquired)")
+    }*/
+    fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
+
+        periodicJobs[topic]?.cancel()
+
+        periodicJobs[topic] = scope.launch(Dispatchers.IO) {
+            try {
+                while (isActive) {
+                    // ask Service to hold CPU briefly
+                    (context as? MqttBackgroundService)?.acquireWakeLock(5000L)
+                    publish(topic, payload)
+                    (context as? MqttBackgroundService)?.releaseWakeLock()
+
+                    delay(intervalMs)
+                }
+            } finally {
+                (context as? MqttBackgroundService)?.releaseWakeLock()
+            }
+        }
+
+        Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms")
     }
+
+
 
 
 
@@ -306,8 +360,6 @@ class MqttManager(
         }
     }
 }
-
-
 
 
 

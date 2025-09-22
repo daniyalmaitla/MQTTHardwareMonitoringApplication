@@ -10,6 +10,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -36,6 +38,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import android.provider.Settings
 import androidx.core.content.ContextCompat.getSystemService
+import kotlinx.coroutines.delay
 
 
 class MqttBackgroundService : Service() {
@@ -57,6 +60,7 @@ class MqttBackgroundService : Service() {
 
         mqttManager = MqttManager(this)
         startForegroundServiceNotification()
+
         NotificationHelper.createChannels(this)
 
         connectivityManager = getSystemService(ConnectivityManager::class.java)
@@ -64,6 +68,24 @@ class MqttBackgroundService : Service() {
 
         // try first connect (may fail silently if offline)
         tryConnect()
+    }
+    private var wakeLock: PowerManager.WakeLock? = null
+
+     fun acquireWakeLock(timeoutMs: Long = 30_000L) {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (wakeLock == null) {
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttApp::SharedWakeLock")
+            wakeLock?.setReferenceCounted(false)
+        }
+        if (wakeLock?.isHeld == false) {
+            wakeLock?.acquire(timeoutMs)
+        }
+    }
+
+    fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (e: Exception) { }
     }
 
     private fun registerNetworkCallback() {
@@ -344,6 +366,7 @@ class MqttBackgroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        releaseWakeLock()
         serviceScope.cancel()
         mqttManager.disconnect()
         networkCallback?.let { connectivityManager.unregisterNetworkCallback(it) }
@@ -362,6 +385,8 @@ class MqttBackgroundService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Cloud Service Running")
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setContentText("Fetching data...")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .build()
@@ -395,26 +420,14 @@ class MqttBackgroundService : Service() {
         safeLog("MQTT", "startForeground called with high importance notification")
     }*/
 
+
     companion object {
         const val ACTION_MANUAL_PUBLISH = "ACTION_MANUAL_PUBLISH"
         const val EXTRA_DEVICE_ID = "deviceId"
         const val EXTRA_PAYLOAD = "payload"
         const val CHANNEL_REPORTS = "reports_channel"
         const val CHANNEL_ALARMS = "alarms_channel"
-        fun ignoreBatteryOptimizations(context: Context) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                val packageName = context.packageName
-                if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                    val intent = Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:$packageName")
-                    )
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    context.startActivity(intent)
-                }
-            }
-        }
+
         fun startIfClientIdSet(context: Context) {
             val clientId = PrefsHelper.getClientId(context)
             if (clientId.isNotBlank()) {
@@ -581,5 +594,7 @@ class MqttBackgroundService : Service() {
 
 
 }
+
+
 
 
