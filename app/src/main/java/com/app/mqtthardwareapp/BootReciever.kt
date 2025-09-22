@@ -4,8 +4,11 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.util.Log
 import kotlin.jvm.java
+import android.provider.Settings
 
 /*class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -52,12 +55,30 @@ class BootReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
 
-                alarmManager.setRepeating(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + interval,
-                    interval,
-                    alarmIntent
-                )
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + interval,
+                            alarmIntent
+                        )
+                    } else {
+                        Log.w("BOOT", "❌ Exact alarms not allowed. Ask user to allow in settings.")
+                        val settingsIntent = Intent(
+                            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        settingsIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        context.startActivity(settingsIntent)
+                    }
+                } else {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        System.currentTimeMillis() + interval,
+                        alarmIntent
+                    )
+                }
                 Log.d("BOOT", "⏰ Alarms re-scheduled with interval: $interval ms")
             }
         }

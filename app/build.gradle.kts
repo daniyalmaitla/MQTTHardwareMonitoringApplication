@@ -48,6 +48,7 @@ android {
 }
 
 dependencies {
+
     implementation ("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
     implementation("com.github.hannesa2:paho.mqtt.android:4.2.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.05.00")

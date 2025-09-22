@@ -1,6 +1,8 @@
 package com.app.mqtthardwareapp
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import com.app.mqtthardwareapp.Utils.PrefsHelper
 import info.mqtt.android.service.MqttAndroidClient
@@ -266,18 +268,18 @@ class MqttManager(
     // ------------------- periodic read control ------------------- //
 
     /** start or restart a timer for exactly one topic */
-    fun startPeriodicRead(topic: String, payload: String, intervalSec: Long) {
-        // cancel any existing job for this topic
+    fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
         periodicJobs[topic]?.cancel()
-
         periodicJobs[topic] = scope.launch {
             while (isActive) {
                 publish(topic, payload)
-                delay(intervalSec * 1000)
+                delay(intervalMs)
             }
         }
-        Log.d("MQTT", "⏱ Started periodic read for $topic every $intervalSec sec")
+        Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms")
     }
+
+
 
     fun stopPeriodicRead(topic: String) {
         periodicJobs[topic]?.cancel()

@@ -221,7 +221,7 @@ class DeviceViewModel(private val repo: DeviceRepository,
             }
         }
     }
-    private val _globalInterval = MutableStateFlow<Long>(50_000L) // default
+    private val _globalInterval = MutableStateFlow<Long>(10_000L) // default
     val globalInterval: StateFlow<Long> = _globalInterval
 
     init {

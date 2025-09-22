@@ -139,7 +139,7 @@ fun DeviceRegScreen(
                     id = 0,
                     name = "",
                     deviceId = "",
-                    interval = 50_000L,
+                    interval = 10_000L,
                     enabled = false,
                     subscribedReadTopic = "",
                     subscribedWriteTopic = ""
