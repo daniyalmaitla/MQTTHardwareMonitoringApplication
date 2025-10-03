@@ -42,73 +42,7 @@ import android.provider.Settings
 import com.app.mqtthardwareapp.Screens.ServerScreen
 
 
-/*class MainActivity : ComponentActivity() {
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Start your background service
-        val serviceIntent = Intent(this, MqttBackgroundService::class.java)
-        startForegroundService(serviceIntent)
-        val database = AppDatabase.getDatabase(this)
-        val repo = DeviceRepository(database.deviceDao())
-        setContent {
-            MqttHardwareAppTheme {
-                val navController = rememberNavController()
-                AppNavigation(navController, repo)
-            }
-        }
-
-    }
-}*/
-/*class MainActivity : ComponentActivity() {
-
-    // hold onto the viewModel so the receiver can update it
-    private lateinit var deviceViewModel: DeviceViewModel
-
-    // --- broadcast receiver for MQTT messages ---
-    private val mqttReceiver = object : BroadcastReceiver() {
-        override fun onReceive(ctx: Context, intent: Intent) {
-            val id   = intent.getStringExtra("deviceId") ?: return
-            val raw  = intent.getStringExtra("payload") ?: return
-            val parsed = parsePayload(raw)          // your parse logic
-            deviceViewModel.updateDeviceData(id, parsed) // push into ViewModel
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // spin up service
-        val serviceIntent = Intent(this, MqttBackgroundService::class.java)
-        startForegroundService(serviceIntent)
-
-        // build repository & ViewModel once so both UI and receiver share the same instance
-        val database = AppDatabase.getDatabase(this)
-        val repo = DeviceRepository(database.deviceDao())
-        deviceViewModel = DeviceViewModelFactory(repo).create(DeviceViewModel::class.java)
-
-        setContent {
-            MqttHardwareAppTheme {
-                val navController = rememberNavController()
-                AppNavigation(navController, repo)
-            }
-        }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        val filter = IntentFilter("MQTT_DEVICE_DATA")
-        LocalBroadcastManager.getInstance(this).registerReceiver(mqttReceiver, filter)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mqttReceiver)
-    }
-}*/
 class MainActivity : ComponentActivity() {
 
     private lateinit var deviceViewModel: DeviceViewModel
@@ -189,13 +123,15 @@ class MainActivity : ComponentActivity() {
                 MqttHardwareAppTheme {
                     val navController = rememberNavController()
                     val startDeviceId = intent.getStringExtra("deviceId")
+
                     AppNavigation(
                         navController,
                         repo,
                         startDeviceId,
                         onChangeLanguage = { langCode ->
                             locale = Locale(langCode)
-                        }
+                        },
+
                     )
                 }
             }
@@ -243,7 +179,7 @@ private fun ignoreBatteryOptimizations(activity: Activity) {
 
 
 @Composable
-fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?, onChangeLanguage: (String) -> Unit) {
+fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startDeviceId: String?, onChangeLanguage: (String) -> Unit ) {
     val viewModel: DeviceViewModel = viewModel(
         factory = DeviceViewModelFactory(repo) // custom factory if needed
     )
@@ -264,7 +200,9 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startD
             ) }
         composable("serverScreen") {
             ServerScreen(
-                onServerSet = {}
+                onServerSet = {},
+                navController = navController
+
             )
         }
     }

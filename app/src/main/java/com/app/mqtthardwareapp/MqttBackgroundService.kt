@@ -320,6 +320,21 @@ class MqttBackgroundService : Service() {
                     sendManualRead(deviceId, payload)
                 }
             }
+            ACTION_RELOAD_CONFIG -> {
+                mqttManager.reloadConfig(
+                    onConnected = {
+                        safeLog("MQTT", "✅ Reconnected (reload)")
+                        collectEnabledDevices()
+                    },
+                    onMessage = { topic, payload ->
+                        safeLog("MQTT_RX", "onMessage → $topic : $payload")
+                        handleIncoming(topic, payload)
+                    },
+                    onDisconnected = {
+                        safeLog("MQTT", "⚠ Disconnected (reload)")
+                    }
+                )
+            }
 
 
         }
@@ -411,6 +426,7 @@ class MqttBackgroundService : Service() {
 
     companion object {
         const val ACTION_MANUAL_PUBLISH = "ACTION_MANUAL_PUBLISH"
+        const val ACTION_RELOAD_CONFIG = "RELOAD_CONFIG"
         const val EXTRA_DEVICE_ID = "deviceId"
         const val EXTRA_PAYLOAD = "payload"
         const val CHANNEL_REPORTS = "reports_channel"

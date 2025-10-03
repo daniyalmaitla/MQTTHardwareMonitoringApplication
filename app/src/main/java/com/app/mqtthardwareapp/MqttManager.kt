@@ -52,16 +52,63 @@ class MqttManager(
         }
     }
 
-    private val serverUri: String = config.optString("serverUri")
-    private val username: String = config.optString("username")
-    private val password: String = config.optString("password")
+    private var serverUri: String = config.optString("serverUri")
+    private var username: String = config.optString("username")
+    private var password: String = config.optString("password")
+
+
+    init {
+
+        val maskedPassword = if (password.isNotEmpty()) "*".repeat(password.length) else ""
+        Log.d("MqttManager", "Loaded from Prefs -> serverUri: $serverUri, username: $username, password: $maskedPassword")
+    }
+
 
    private val clientId: String by lazy {
        PrefsHelper.getClientId(context).ifBlank {
            throw IllegalStateException("❌ Client ID is missing! User must set it before connecting.")
        }
    }
-    private val mqttClient = MqttClient(serverUri, clientId, null)
+    private var mqttClient = MqttClient(serverUri, clientId, null)
+    fun reloadConfig(
+        onConnected: () -> Unit,
+        onMessage: (String, String) -> Unit,
+        onDisconnected: () -> Unit
+    ) {
+        try {
+            val newConfig = JSONObject(PrefsHelper.getServerDetails(context))
+            val newServerUri = newConfig.optString("serverUri")
+            val newUsername = newConfig.optString("username")
+            val newPassword = newConfig.optString("password")
+
+            if (newServerUri != serverUri || newUsername != username || newPassword != password) {
+                Log.d("MQTT", "🔄 Config changed → reconnecting...")
+
+                // close old client
+                try {
+                    mqttClient.setCallback(null)
+                    if (mqttClient.isConnected) mqttClient.disconnectForcibly(1000, 1000)
+                    mqttClient.close()
+                } catch (e: Exception) { }
+
+                // rebuild client
+                val newClientId = PrefsHelper.getClientId(context)
+                mqttClient = MqttClient(newServerUri, newClientId, null)
+
+                serverUri = newServerUri
+                username = newUsername
+                password = newPassword
+
+                // reconnect with service callbacks
+                connect(onConnected, onMessage, onDisconnected)
+            }
+        } catch (e: Exception) {
+            Log.e("MQTT", "❌ Failed to reload config: ${e.message}", e)
+        }
+    }
+
+
+
 
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -69,7 +116,7 @@ class MqttManager(
     /** one periodic job per topic */
     private val periodicJobs = mutableMapOf<String, Job>()
 
-    // ------------------- connect / subscribe / publish ------------------- //
+
 
     fun connect(
         onConnected: () -> Unit,
@@ -182,64 +229,6 @@ class MqttManager(
         }
     }
 }
-/** start or restart a timer for exactly one topic */
-/*fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
-    periodicJobs[topic]?.cancel()
-    periodicJobs[topic] = scope.launch {
-        while (isActive) {
-            publish(topic, payload)
-            delay(intervalMs)
-        }
-    }
-    Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms")
-}*/
-/*fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
-    // Cancel any existing job for this topic
-    periodicJobs[topic]?.cancel()
-
-    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    val wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttApp::ReadLoop")
-
-    // Acquire for 10 minutes (safety timeout, avoids battery drain if release is missed)
-    wakeLock.acquire(10 * 60 * 1000L)
-
-    periodicJobs[topic] = scope.launch(Dispatchers.IO) {
-        try {
-            while (isActive) {
-                publish(topic, payload)
-                delay(intervalMs)
-            }
-        } finally {
-            // Always release WakeLock when job is cancelled
-            if (wakeLock.isHeld) {
-                wakeLock.release()
-            }
-        }
-    }
-
-    Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms (WakeLock acquired)")
-}*/
-/*fun startPeriodicRead(topic: String, payload: String, intervalMs: Long) {
-
-    periodicJobs[topic]?.cancel()
-
-    periodicJobs[topic] = scope.launch(Dispatchers.IO) {
-        try {
-            while (isActive) {
-                // ask Service to hold CPU briefly
-                (context as? MqttBackgroundService)?.acquireWakeLock(5000L)
-                publish(topic, payload)
-                (context as? MqttBackgroundService)?.releaseWakeLock()
-
-                delay(intervalMs)
-            }
-        } finally {
-            (context as? MqttBackgroundService)?.releaseWakeLock()
-        }
-    }
-
-    Log.d("MQTT", "⏱ Started periodic read for $topic every ${intervalMs} ms")
-}*/
 
 
 

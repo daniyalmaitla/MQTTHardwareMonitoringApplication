@@ -2,6 +2,7 @@ package com.app.mqtthardwareapp.Screens
 
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,6 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import com.app.mqtthardwareapp.MqttBackgroundService
+import com.app.mqtthardwareapp.MqttBackgroundService.Companion.ACTION_RELOAD_CONFIG
+import com.app.mqtthardwareapp.MqttManager
 import com.app.mqtthardwareapp.Utils.PrefsHelper
 import org.json.JSONArray
 import org.json.JSONException
@@ -89,7 +94,9 @@ fun ServerScreen(
 @Composable
 fun ServerScreen(
 
-    onServerSet: (String) -> Unit
+    onServerSet: (String) -> Unit,
+    navController : NavController,
+
 ) {
     val context = LocalContext.current
     var serverText by remember {
@@ -155,6 +162,13 @@ fun ServerScreen(
                     onClick = {
                         PrefsHelper.saveServerDetails(context, serverText.text)
                         onServerSet(serverText.text)
+
+                        val intent = Intent(context, MqttBackgroundService::class.java).apply {
+                            action = ACTION_RELOAD_CONFIG
+                        }
+                        context.startService(intent)
+                        navController.navigate("home")
+
                     },
                     enabled = serverText.text.isNotBlank() && isValidJson
                 ) {
