@@ -38,16 +38,18 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import android.provider.Settings
 import androidx.core.content.ContextCompat.getSystemService
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 
 class MqttBackgroundService : Service() {
     private lateinit var mqttManager: MqttManager
     private val lastStates = mutableMapOf<String, MutableMap<String, Int>>()
-    private val acknowledgedAlarms = mutableMapOf<String, MutableMap<String, Boolean>>()
 
 
-    // … existing fields
+
+
     private lateinit var connectivityManager: ConnectivityManager
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -66,8 +68,9 @@ class MqttBackgroundService : Service() {
         connectivityManager = getSystemService(ConnectivityManager::class.java)
         registerNetworkCallback()
 
-        // try first connect (may fail silently if offline)
+
         tryConnect()
+
     }
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -93,6 +96,7 @@ class MqttBackgroundService : Service() {
             override fun onAvailable(network: Network) {
                 Log.d("MQTT", "🌐 Network available, reconnecting…")
                 tryConnect()
+
             }
 
             override fun onLost(network: Network) {
@@ -102,18 +106,7 @@ class MqttBackgroundService : Service() {
         connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
     }
 
-    /*private fun tryConnect() {
-        serviceScope.launch {
-            mqttManager.connect(
-                onConnected = {
-                    Log.d("MQTT", "✅ Connected")
-                    collectEnabledDevices()
-                },
-                onMessage = { topic, payload -> handleIncoming(topic, payload) },
-                onDisconnected = { Log.w("MQTT", "⚠ Disconnected") }
-            )
-        }
-    }*/
+
     private fun tryConnect() {
         serviceScope.launch {
             try {
@@ -139,55 +132,84 @@ class MqttBackgroundService : Service() {
     }
 
 
+
+
+    /*private fun collectEnabledDevices() = serviceScope.launch {
+        AppDatabase.getDatabase(applicationContext)
+            .deviceDao()
+            .getEnabledDevices()
+            .collect { enabledList ->
+                mqttManager.clearPeriodicReads()
+                if (enabledList.isNotEmpty()) {
+                    acquireWakeLock(15 * 60 * 1000L)
+                } else {
+                    releaseWakeLock()
+                }
+                enabledList.forEach { device ->
+                    val read = "${device.deviceId}READ"
+                    val write = "${device.deviceId}WRITE"
+                    val payload = "SN${device.deviceId}E"
+                    mqttManager.subscribe(read)
+                    mqttManager.subscribe(write)
+                    mqttManager.startPeriodicRead(read, payload, device.interval)
+                }
+            }
+    }*/
+    private var activeDevices = emptyList<String>()
+
     private fun collectEnabledDevices() = serviceScope.launch {
         AppDatabase.getDatabase(applicationContext)
             .deviceDao()
             .getEnabledDevices()
             .collect { enabledList ->
+
+                val newIds = enabledList.map { it.deviceId }
+                val oldIds = activeDevices
+
+                // find removed devices
+                val removed = oldIds - newIds.toSet()
+                // find newly added devices
+
+
+                // ✅ unsubscribe removed
+                removed.forEach { id ->
+                    val read = "${id}READ"
+                    val write = "${id}WRITE"
+                    mqttManager.unsubscribe(read)
+                    mqttManager.unsubscribe(write)
+                    safeLog("MQTT", "⏹ Unsubscribed $id (device deleted or disabled)")
+                }
+
+                // reset periodic reads
                 mqttManager.clearPeriodicReads()
+
+                if (enabledList.isNotEmpty()) {
+                    acquireWakeLock(15 * 60 * 1000L)
+                } else {
+                    releaseWakeLock()
+                }
+
+                // ✅ subscribe new devices & start periodic jobs
                 enabledList.forEach { device ->
                     val read = "${device.deviceId}READ"
                     val write = "${device.deviceId}WRITE"
                     val payload = "SN${device.deviceId}E"
+
                     mqttManager.subscribe(read)
                     mqttManager.subscribe(write)
                     mqttManager.startPeriodicRead(read, payload, device.interval)
                 }
+
+                // update current active list
+                activeDevices = newIds
             }
     }
-    /*private fun collectEnabledDevices() = serviceScope.launch {
-        safeLog("MQTT", "collectEnabledDevices() started, subscribing DB flow...")
-        AppDatabase.getDatabase(applicationContext)
-            .deviceDao()
-            .getEnabledDevices()
-            .collect { enabledList ->
-                safeLog("MQTT", "DB emitted enabledList size=${enabledList.size}")
-                // DON'T clear periodic reads until we confirm scheduling (but keep behavior as-is for now)
-                mqttManager.clearPeriodicReads()
-                safeLog("MQTT", "Cleared previous periodic reads")
-                enabledList.forEach { device ->
-                    val read = "${device.deviceId}READ"
-                    val write = "${device.deviceId}WRITE"
-                    val payload = "SN${device.deviceId}E"
-                    safeLog("MQTT", "Scheduling device=${device.deviceId} interval=${device.interval}")
-                    mqttManager.subscribe(read)
-                    mqttManager.subscribe(write)
-                    // Log inside mqttManager.startPeriodicRead should exist; if not, we log here
-                    mqttManager.startPeriodicRead(read, payload, device.interval)
-                    safeLog("MQTT", "Started periodic read for $read (payload=$payload)")
-                }
-            }
-    }*/
 
-    /*private fun handleIncoming(topic: String, payload: String) {
-        Log.d("MQTT", "📥 $topic → $payload")
-        LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(
-            Intent("MQTT_DEVICE_DATA").apply {
-                putExtra("deviceId", topic.removeSuffix("READ").removeSuffix("WRITE"))
-                putExtra("payload", payload)
-            }
-        )
-    }*/
+
+
+
+
+
     private fun handleIncoming(topic: String, payload: String) {
         Log.d("MQTT", "📥 $topic → $payload")
 
@@ -251,24 +273,7 @@ class MqttBackgroundService : Service() {
             }
         )
     }
-    /*private fun checkAndTriggerAlarm(
-        deviceId: String,
-        field: String,
-        currentValue: Int?,
-        message: String,
-        deviceStates: MutableMap<String, Int>
-    ) {
-        if (currentValue == null) return
 
-        val lastValue = deviceStates[field] ?: 0
-        if (lastValue == 0 && currentValue == 1) {
-            // transition 0 -> 1 → trigger alarm
-            showAlarmNotification(deviceId, message)
-        }
-
-        // update stored state
-        deviceStates[field] = currentValue
-    }*/
     private fun checkAndTriggerAlarm(
         deviceId: String,
         field: String,
@@ -305,14 +310,20 @@ class MqttBackgroundService : Service() {
 
 
 
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_MANUAL_PUBLISH) {
-            val deviceId = intent.getStringExtra(EXTRA_DEVICE_ID)
-            val payload  = intent.getStringExtra(EXTRA_PAYLOAD)
-            if (!deviceId.isNullOrEmpty() && !payload.isNullOrEmpty()) {
-                sendManualRead(deviceId, payload)
+        when (intent?.action) {
+            ACTION_MANUAL_PUBLISH -> {
+                val deviceId = intent.getStringExtra(EXTRA_DEVICE_ID)
+                val payload = intent.getStringExtra(EXTRA_PAYLOAD)
+                if (!deviceId.isNullOrEmpty() && !payload.isNullOrEmpty()) {
+                    sendManualRead(deviceId, payload)
+                }
             }
+
+
         }
+
         return START_STICKY
     }
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -355,7 +366,9 @@ class MqttBackgroundService : Service() {
     }
 
 
-    /** Publish over the existing MQTT connection */
+
+
+
     fun sendManualRead(deviceId: String, command: String) {
         val topic = "${deviceId}READ"
         mqttManager.publish(topic, command)
@@ -393,32 +406,7 @@ class MqttBackgroundService : Service() {
 
         startForeground(1, notification)
     }
-    /*private fun startForegroundServiceNotification() {
-        val channelId = "mqtt_service_channel"
-        val channelName = "MQTT Background Service"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(
-                channelId, channelName, NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "MQTT background service (keeps device polling)"
-                setShowBadge(false)
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(chan)
-        }
-
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("MQTT Service Running")
-            .setContentText("Fetching data every configured interval")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setOngoing(true) // make it sticky
-            .setOnlyAlertOnce(true)
-            .build()
-
-        startForeground(1, notification)
-        safeLog("MQTT", "startForeground called with high importance notification")
-    }*/
 
 
     companion object {
@@ -427,6 +415,7 @@ class MqttBackgroundService : Service() {
         const val EXTRA_PAYLOAD = "payload"
         const val CHANNEL_REPORTS = "reports_channel"
         const val CHANNEL_ALARMS = "alarms_channel"
+
 
         fun startIfClientIdSet(context: Context) {
             val clientId = PrefsHelper.getClientId(context)
@@ -440,58 +429,7 @@ class MqttBackgroundService : Service() {
         }
 
     }
-    private fun createNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val reportChannel = NotificationChannel(
-                CHANNEL_REPORTS,
-                "Device Reports",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = "Notifications for device reports" }
 
-            val alarmChannel = NotificationChannel(
-                CHANNEL_ALARMS,
-                "Device Alarms",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Critical alarms from devices"
-                enableVibration(true)
-            }
-
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(reportChannel)
-            manager.createNotificationChannel(alarmChannel)
-        }
-    }
-  /*  private fun showNotification(deviceId: String, title: String, message: String, channelId: String) {
-        Log.d("MQTT_SERVICE", "🔔 Building notification → $title : $message")
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("deviceId", deviceId)
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            deviceId.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setPriority(
-                if (channelId == CHANNEL_ALARMS) NotificationCompat.PRIORITY_MAX
-                else NotificationCompat.PRIORITY_DEFAULT
-            )
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
-        Log.d("MQTT_SERVICE", "✅ Notification sent for device=$deviceId")
-    }*/
   private fun showNotification(deviceId: String, title: String, message: String, channelId: String) {
       val intent = Intent(this, MainActivity::class.java).apply {
           flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -522,33 +460,7 @@ class MqttBackgroundService : Service() {
       val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       manager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
   }
-    /*private fun showAlarmNotification(deviceId: String, message: String) {
-        // Start looping alarm sound
-        AlarmHelper.startAlarm(this)
 
-        // Intent to stop alarm
-        val stopIntent = Intent(this, AlarmStopReceiver::class.java).apply {
-            putExtra("deviceId", deviceId)
-        }
-        val stopPendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ALARMS)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("⚠️ Alarm: Device $deviceId")
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setOngoing(true) // keeps notification until user stops
-            .addAction(android.R.drawable.ic_media_pause, "Stop Alarm", stopPendingIntent)
-            .build()
-
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(deviceId.hashCode(), notification)
-    }*/
 
     private fun showAlarmNotification(deviceId: String, field: String, message: String) {
         android.util.Log.d("MQTT_SERVICE", "🔔 showAlarmNotification -> device=$deviceId field=$field message=$message")

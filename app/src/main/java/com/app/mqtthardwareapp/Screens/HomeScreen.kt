@@ -13,6 +13,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -110,6 +111,7 @@ fun HomeScreen(
     navController: NavController,
     onMachineClick : () ->Unit,
     viewModel: DeviceViewModel,
+    onCloudClick:()->Unit,
     startDeviceId: String? = null
 
 ){
@@ -189,7 +191,8 @@ fun HomeScreen(
                     enabledDeviceView.firstOrNull { it.device.deviceId == deviceId }?.let {
                         viewModel.selectDevice(it.device, context)
                     }
-                }
+                },
+                onCloudLongPress = onCloudClick
             )
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -529,6 +532,7 @@ fun DeviceSelectorField(
     placeholder: String,
     enabledDevices: List<DeviceWithData>,
     selectedDevice: String,
+    onCloudLongPress: () -> Unit,
     onDeviceSelected: (String) -> Unit
 ) {
     val displayText = if (selectedDevice.isBlank()) placeholder else selectedDevice
@@ -549,7 +553,8 @@ fun DeviceSelectorField(
             Icon(
                 painter = painterResource(R.drawable.cloud_platform),
                 contentDescription = "Device Icon",
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp).combinedClickable(onClick = {},
+                    onLongClick = {onCloudLongPress()})
             )
 
             Spacer(modifier = Modifier.width(8.dp))

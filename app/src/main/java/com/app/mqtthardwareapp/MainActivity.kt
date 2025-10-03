@@ -1,5 +1,6 @@
 package com.app.mqtthardwareapp
 
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -38,6 +39,7 @@ import com.app.mqtthardwareapp.ViewModels.DeviceViewModel
 import com.app.mqtthardwareapp.ViewModels.DeviceViewModelFactory
 import java.util.Locale
 import android.provider.Settings
+import com.app.mqtthardwareapp.Screens.ServerScreen
 
 
 /*class MainActivity : ComponentActivity() {
@@ -217,19 +219,27 @@ class MainActivity : ComponentActivity() {
     }
 
 }
-private fun ignoreBatteryOptimizations(context: Context) {
+private fun ignoreBatteryOptimizations(activity: Activity) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val packageName = context.packageName
+        val pm = activity.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val packageName = activity.packageName
         if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-            val intent = Intent(
-                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                Uri.parse("package:$packageName")
-            )
-            context.startActivity(intent)
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            try {
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // fallback: open full settings page
+                val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                activity.startActivity(fallback)
+            }
         }
     }
 }
+
 
 
 @Composable
@@ -242,7 +252,8 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startD
             navController = navController,
             onMachineClick = {navController.navigate("device_reg")},
             viewModel = viewModel,
-            startDeviceId = startDeviceId)}
+            startDeviceId = startDeviceId,
+            onCloudClick = {navController.navigate("serverScreen")})}
         composable("device_reg") {
             DeviceRegScreen(
                 navController = navController,
@@ -251,6 +262,11 @@ fun AppNavigation(navController: NavHostController,repo: DeviceRepository,startD
                 onChangeLanguage = onChangeLanguage
 
             ) }
+        composable("serverScreen") {
+            ServerScreen(
+                onServerSet = {}
+            )
+        }
     }
 }
 

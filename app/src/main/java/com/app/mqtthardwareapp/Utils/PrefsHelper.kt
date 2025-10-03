@@ -1,6 +1,7 @@
 package com.app.mqtthardwareapp.Utils
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.app.mqtthardwareapp.DeviceData
 import org.json.JSONObject
 
@@ -9,6 +10,28 @@ object PrefsHelper {
     private const val KEY_CLIENT_ID = "client_id"
     private const val KEY_SELECTED_DEVICE = "selected_device"
     private const val KEY_SAVED_IDS = "saved_device_ids"
+    private const val KEY_SERVER_DETAILS = "server_details"
+
+
+    const val DEFAULT_SERVER_JSON = """
+        {
+            "serverUri": "tcp://ce47707f.ala.dedicated.gcp.emqxcloud.com:1883",
+            "username": "positron",
+            "password": "positron"
+        }
+    """
+
+    private fun prefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    fun saveServerDetails(context: Context, json: String) {
+        prefs(context).edit().putString(KEY_SERVER_DETAILS, json).apply()
+    }
+
+    fun getServerDetails(context: Context): String {
+        return prefs(context).getString(KEY_SERVER_DETAILS, DEFAULT_SERVER_JSON)!!
+    }
+
 
     fun saveClientId(context: Context, clientId: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
