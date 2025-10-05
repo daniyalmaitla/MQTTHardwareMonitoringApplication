@@ -103,6 +103,9 @@ import com.app.mqtthardwareapp.DeviceData
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.text.style.TextAlign
 
 
@@ -425,107 +428,44 @@ fun HomeTopbar(
         }
     }
 }
-/*@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceSelectorField(
-
-    placeholder: String,
-    suggestions: List<String>,
-    selectedDevice: String,
-    onDeviceSelected: (String) -> Unit
+fun CloudIcon(
+    onCloudLongPress: () -> Unit,
+    longPressDurationMs: Long = 5000L // 5 seconds
 ) {
-    val displayText = if (selectedDevice.isBlank()) placeholder else selectedDevice
-    var dialogOpen by remember { mutableStateOf(false) }
-    var selected by remember { mutableStateOf(selectedDevice) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth() ,// Whole row clickable
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Left Cloud Icon
+    // base configuration to delegate other values to
+    val base = LocalViewConfiguration.current
+
+    // custom config that only changes longPressTimeoutMillis and delegates rest to base
+    val customConfig = remember(base, longPressDurationMs) {
+        object : ViewConfiguration {
+            override val longPressTimeoutMillis: Long
+                get() = longPressDurationMs
+
+            override val doubleTapTimeoutMillis: Long
+                get() = base.doubleTapTimeoutMillis
+
+            override val doubleTapMinTimeMillis: Long
+                get() = base.doubleTapMinTimeMillis
+
+            override val touchSlop: Float
+                get() = base.touchSlop
+        }
+    }
+
+    CompositionLocalProvider(LocalViewConfiguration provides customConfig) {
         Icon(
             painter = painterResource(R.drawable.cloud_platform),
             contentDescription = "Device Icon",
-            modifier = Modifier.size(40.dp)
-        )
-   Spacer(modifier = Modifier.width(5.dp))
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .clickable { dialogOpen = true } // Whole box is clickable
-    ) {
-        OutlinedTextField(
-            value = displayText,
-            onValueChange = { }, // not editable
-            placeholder = { Text(placeholder) },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = "Dropdown"
-                )
-            },
-            readOnly = true,
-            enabled = false, // disables input focus
             modifier = Modifier
-                .fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                disabledTextColor = LocalContentColor.current,
-                disabledPlaceholderColor = LocalContentColor.current.copy(alpha = 0.6f)
-            )
+                .size(40.dp)
+                .combinedClickable(
+                    onClick = { /* normal click */ },
+                    onLongClick = { onCloudLongPress() }
+                )
         )
     }
-        Spacer(modifier = Modifier.width(5.dp))
-
-        Icon(
-            painter = painterResource(R.drawable.down_arrow),
-            contentDescription = "Dropdown",
-            modifier = Modifier.size(40.dp)
-        )
-    }
-
-    // Dialog with radio buttons
-    if (dialogOpen) {
-        AlertDialog(
-            onDismissRequest = { dialogOpen = false },
-            confirmButton = {
-                TextButton(onClick = { dialogOpen = false }) {
-                    Text("OK", fontSize = 20.sp)
-                }
-            },
-            title = { Text("Choose Device") },
-            text = {
-                Column {
-                    suggestions.forEach { device ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selected = device
-                                    onDeviceSelected(device)
-                                }
-                                .padding(8.dp)
-                        ) {
-                            RadioButton(
-                                selected = (selected == device),
-                                onClick = {
-                                    selected = device
-                                    onDeviceSelected(device)
-                                }
-                            )
-                            Text(
-                                text = device,
-                                fontSize = 18.sp,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        )
-    }
-}*/
+}
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DeviceSelectorField(
@@ -535,6 +475,7 @@ fun DeviceSelectorField(
     onCloudLongPress: () -> Unit,
     onDeviceSelected: (String) -> Unit
 ) {
+
     val displayText = if (selectedDevice.isBlank()) placeholder else selectedDevice
 
     // dialog (names + radios) and surface (grid) states
@@ -550,12 +491,7 @@ fun DeviceSelectorField(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(R.drawable.cloud_platform),
-                contentDescription = "Device Icon",
-                modifier = Modifier.size(40.dp).combinedClickable(onClick = {},
-                    onLongClick = {onCloudLongPress()})
-            )
+            CloudIcon(onCloudLongPress = onCloudLongPress)
 
             Spacer(modifier = Modifier.width(8.dp))
 
@@ -884,97 +820,7 @@ fun DeviceField(
         }
     }
 }
-/*@Composable
-fun SpeedSettingRow(speed : String, onBtnClick: (String) -> Unit  ) {
-    var showSpeedField by remember { mutableStateOf(false) }
-    var speedInput by remember { mutableStateOf("") }
-    val isError = speedInput.isBlank()
 
-
-    Column {
-        // Current Speed Row
-        DeviceField(
-            icon = painterResource(R.drawable.optimization),
-            label = "SPEED SETTING",
-            value = speed,
-            unit = "m/h",
-            iconRight = painterResource(R.drawable.down_arrow),
-            onRightIconClick = {
-                showSpeedField = !showSpeedField
-            }
-        )
-
-        // Appears only when icon is clicked
-        if (showSpeedField) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth().background(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Left Icon
-                Icon(
-                    painter = painterResource(R.drawable.download_speed), // replace with your icon
-                    contentDescription = "Speed",
-                    modifier = Modifier.size(24.dp)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Label
-                Text(
-                    text = "CHANGE SPEED",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    modifier = Modifier.width(80.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                // Input field
-                OutlinedTextField(
-                    value = speedInput,
-                    onValueChange = { speedInput = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("ENTER SPEED") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = if (isError) Color.Red else MaterialTheme.colorScheme.surfaceContainer,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
-                        cursorColor = Color.Black
-                    )
-                )
-
-                Spacer(modifier = Modifier.width(25.dp))
-
-
-                Button(
-                    onClick = {
-                        if (!isError) {
-                            onBtnClick(speedInput)
-                            showSpeedField = false
-                        }
-                    },
-                    enabled = !isError,
-                    modifier = Modifier
-                        .height(50.dp)
-                        .width(50.dp)
-                        .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
-                    shape = RoundedCornerShape(2.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isError) Color.LightGray
-                        else MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text("OK", color = Color.Black, fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}*/
 @Composable
 fun SpeedSettingRow(
     speed: String,
@@ -1092,127 +938,7 @@ fun SpeedSettingRow(
     }
 }
 
-/*@Composable
-fun PressureSettingRow(value:String,limit:String,onBtnClick: (String) -> Unit) {
-    var showField by remember { mutableStateOf(false) }
-    var newValue by remember { mutableStateOf("") }
-    val isError = newValue.isBlank()
-    val isValid = newValue.length == 2 && newValue.all { it.isDigit() }
 
-    Column {
-        // Current Pressure Row (collapsible trigger)
-        DeviceField(
-            icon = painterResource(R.drawable.pressure_meter),
-            label = "PRESSURE",
-            value = value,
-            unit = "bars",
-            iconRight = painterResource(R.drawable.down_arrow),
-            onRightIconClick = {
-                showField = !showField
-            }
-        )
-
-        if (showField) {
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    .padding(8.dp)
-            ) {
-                // Icon + Label above read-only field
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.pressure_meter),
-                        contentDescription = "Pressure Icon",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color.Unspecified
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "PRESSURE UPPER LIMIT",
-                        fontSize = 15.sp,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Black
-                    )
-                }
-
-                // Read-only field with current value
-                OutlinedTextField(
-                    value = limit,
-                    onValueChange = { }, // Read-only
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 10.dp),
-                    readOnly = true,
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledContainerColor = Color.White,
-                        disabledTextColor = Color.Black,
-                        disabledBorderColor = Color.Gray
-                    ),
-                    enabled = false
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Editable input field
-                    OutlinedTextField(
-                        value = newValue,
-                        onValueChange = { input ->
-                            // strip out anything that isn't a digit and keep at most 2
-                            newValue = input.filter { it.isDigit() }.take(2)
-                        },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        label = { Text("Enter new value", color = Color.White,
-                            modifier = Modifier.background(color = Color.Unspecified)) },
-                        placeholder = { Text("00") },
-                        isError = newValue.isNotEmpty() && !isValid,   // red only when text exists but not exactly 2
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = if (isValid || newValue.isEmpty()) Color.Gray else Color.Red,
-                            unfocusedBorderColor = if (isValid || newValue.isEmpty()) Color.Gray else Color.Red,
-                            cursorColor = Color.Black
-                        )
-                    )
-
-                    Spacer(Modifier.width(16.dp))
-
-                    Button(
-                        onClick = {
-                            if (!isError) {
-
-                                newValue = ""      // clear
-                                onBtnClick(newValue)
-                                showField = false  // collapse
-                            }
-
-                        },
-                        enabled = isValid || !isError,
-                        modifier = Modifier
-                            .height(50.dp)
-                            .width(50.dp)
-                            .border(1.dp, Color.Gray, RoundedCornerShape(2.dp)),
-                        shape = RoundedCornerShape(2.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isValid) MaterialTheme.colorScheme.surfaceContainer else Color.LightGray
-                        ),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("OK", color = Color.Black, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}*/
 @Composable
 fun PressureSettingRow(
     value: String,
