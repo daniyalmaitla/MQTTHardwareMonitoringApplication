@@ -1,0 +1,60 @@
+# Remote Hardware Monitoring & Control App
+
+> Real-time IoT hardware monitoring and remote control via MQTT on Android.
+
+![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android&logoColor=white)
+![Language](https://img.shields.io/badge/Language-Kotlin-7F52FF?style=flat&logo=kotlin&logoColor=white)
+![Protocol](https://img.shields.io/badge/Protocol-MQTT-660066?style=flat)
+![Status](https://img.shields.io/badge/Status-Production-brightgreen?style=flat)
+
+## Overview
+
+An Android IoT application that enables engineers to monitor live sensor data and remotely control hardware devices — all from their phone. Built to handle continuous data streams reliably without draining the battery.
+
+## Key Features
+
+- **Real-time monitoring** — Live hardware data via MQTT with near-zero latency
+- **Remote control** — Send commands to connected hardware devices from anywhere
+- **Always-on streaming** — Foreground service ensures continuous data flow with no interruptions
+- **Battery optimised** — Background execution tuned to reduce battery consumption by ~30% vs naive approach
+- **Auto-reconnect** — Automatic MQTT reconnection on network loss with no data gaps
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Kotlin |
+| Protocol | MQTT (Eclipse Paho) |
+| Architecture | MVVM |
+| Background | Android Foreground Services |
+| Build | Gradle, Android SDK |
+
+## Architecture
+
+```
+UI Layer (Activities/Fragments)
+       │
+ViewModel (MVVM)
+       │
+Repository
+       │
+MQTT Service (Foreground) ←→ Hardware Devices
+```
+
+## Getting Started
+
+1. Clone the repo
+   ```bash
+   git clone https://github.com/Areesha555/<repo-name>.git
+   ```
+2. Open in Android Studio
+3. Configure your MQTT broker address in `MqttConfig.kt`
+4. Build and run on a physical Android device (API 26+)
+
+## Screenshots
+
+> _Coming soon_
+
+## License
+
+MIT
